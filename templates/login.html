@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>로그인 / Sign in · 주토론토총영사관</title>
+  <link rel="icon" type="image/png" href="/static/kor.png">
+  <script>
+    (function () {
+      try {
+        var s = localStorage.getItem('consulate-theme');
+        if (s === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --bg: #0b1220;
+      --surface: #131c2e;
+      --surface-2: #1c2540;
+      --border: #2a3a55;
+      --text: #f1f5f9;
+      --text-2: #cbd5e1;
+      --text-3: #94a3b8;
+      --accent: #60a5fa;
+      --error: #f87171;
+      --error-soft: rgba(248,113,113,0.16);
+      --error-border: rgba(248,113,113,0.4);
+      --button-bg: #2563eb;
+      --button-bg-hover: #1d4ed8;
+      --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 8px 28px rgba(0,0,0,0.55);
+      --logo-bg: #ffffff;
+    }
+    :root[data-theme="light"] {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --surface-2: #f6f7f8;
+      --border: #e5e7eb;
+      --text: #111827;
+      --text-2: #4b5563;
+      --text-3: #9ca3af;
+      --accent: #2563eb;
+      --error: #dc2626;
+      --error-soft: #fef2f2;
+      --error-border: #fecaca;
+      --button-bg: #1f2937;
+      --button-bg-hover: #111827;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+      --logo-bg: transparent;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+                   system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      letter-spacing: -0.01em;
+      transition: background 0.15s, color 0.15s;
+    }
+    .theme-toggle {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .theme-toggle:hover { background: var(--surface-2); color: var(--text); }
+    .theme-toggle svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; }
+    :root[data-theme="light"] .icon-moon { display: none; }
+    :root:not([data-theme="light"]) .icon-sun { display: none; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 36px 32px 32px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .brand img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      background: var(--logo-bg);
+      border-radius: 6px;
+      padding: 2px;
+    }
+    .brand .ko { font-size: 15px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+    .brand .en { font-size: 11px; color: var(--text-3); line-height: 1.3; margin-top: 2px; }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 22px;
+      letter-spacing: -0.025em;
+    }
+    .subtitle {
+      color: var(--text-2);
+      font-size: 13.5px;
+      margin: 0 0 24px;
+      line-height: 1.55;
+    }
+
+    .field { margin-bottom: 14px; }
+    label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-2);
+      margin-bottom: 8px;
+      letter-spacing: 0.01em;
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 13px 14px;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+      transition: border-color 0.12s, box-shadow 0.12s;
+      letter-spacing: 0.03em;
+    }
+    input[type="password"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(96,165,250,0.18);
+    }
+
+    button.submit {
+      width: 100%;
+      padding: 13px;
+      font-size: 14.5px;
+      font-weight: 600;
+      background: var(--button-bg);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.12s, transform 0.05s;
+      margin-top: 6px;
+      letter-spacing: -0.01em;
+    }
+    button.submit:hover { background: var(--button-bg-hover); }
+    button.submit:active { transform: scale(0.98); }
+
+    .error {
+      background: var(--error-soft);
+      border: 1px solid var(--error-border);
+      color: var(--error);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    footer {
+      margin-top: 26px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-3);
+      font-size: 11.5px;
+      line-height: 1.6;
+    }
+    footer a { color: var(--text-2); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" type="button" aria-label="테마 전환" title="다크/라이트 전환">
+    <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke-linecap="round"/></svg>
+    <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-linejoin="round"/></svg>
+  </button>
+
+  <main class="card">
+    <div class="brand">
+      <img src="/static/kor.png" alt="대한민국">
+      <div>
+        <div class="ko">주토론토 대한민국 총영사관</div>
+        <div class="en">Consulate General of the Republic of Korea in Toronto</div>
+      </div>
+    </div>
+
+    <h1>예약 현황 로그인</h1>
+    <p class="subtitle">관리자 비밀번호 또는 오늘의 4자리 passcode를 입력하세요.<br>Enter admin password or today's 4-digit passcode.</p>
+
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+    <form method="post" action="/login" autocomplete="off">
+      <div class="field">
+        <label for="password">비밀번호 / Password</label>
+        <input id="password" name="password" type="password" required autofocus inputmode="text">
+      </div>
+      <button class="submit" type="submit">로그인 · Sign in</button>
+    </form>
+
+    <footer>
+      © 2026 주토론토총영사관 예약 대시보드<br>
+      문의 · Inquiries <a href="mailto:dojkim25@mofa.go.kr">dojkim25@mofa.go.kr</a>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      const KEY = 'consulate-theme';
+      const root = document.documentElement;
+      function isLight() { return root.getAttribute('data-theme') === 'light'; }
+      document.querySelectorAll('.theme-toggle').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (isLight()) {
+            root.removeAttribute('data-theme');
+            try { localStorage.setItem(KEY, 'dark'); } catch (e) {}
+          } else {
+            root.setAttribute('data-theme', 'light');
+            try { localStorage.setItem(KEY, 'light'); } catch (e) {}
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

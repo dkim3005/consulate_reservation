@@ -1,0 +1,12 @@
+.env
+attendance.json
+attendance.tmp
+*:Zone.Identifier
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
