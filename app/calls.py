@@ -45,17 +45,19 @@ VOICE_KO = "ko-KR-HyunsuMultilingualNeural"
 VOICE_EN = "en-US-AvaMultilingualNeural"
 TTS_RATE = "-10%"  # slightly slower for lobby clarity
 
-# OpenAI TTS (primary) — gpt-4o-mini-tts is the cheapest TTS model
+# OpenAI TTS (primary) — gpt-4o-mini-tts is the cheapest TTS model.
+# One consistent announcer identity for every call (KO and EN).
 OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
-OPENAI_TTS_VOICE = "coral"
+OPENAI_TTS_VOICE = "nova"
 OPENAI_TTS_INSTRUCTIONS_KO = (
-    "공공기관 대기실 안내방송입니다. 안정적이고 또렷한 목소리로, 일정한 속도와 일정한 음량으로 "
-    "또박또박 명확하게 말하세요. 숨소리나 떨림 없이 단단하게 발음하세요."
+    "당신은 20~30대 젊은 한국인 여성 아나운서입니다. 공공기관 대기실 안내방송을 합니다. "
+    "밝고 자연스러우면서도 안정적인 톤으로, 일정한 속도로 또박또박 명확하게 말하세요. "
+    "기계적이지 않게, 실제 아나운서처럼 자연스럽게."
 )
 OPENAI_TTS_INSTRUCTIONS_EN = (
-    "This is a public-office waiting room announcement. "
-    "Speak in a steady, clear, even-paced voice with consistent volume. "
-    "No breathiness or wavering — firm and articulate."
+    "You are a young female announcer in her late 20s at a public office. "
+    "Deliver the waiting-room announcement in a bright, natural, yet steady tone — "
+    "even pace, clear articulation, like a real human announcer, not robotic."
 )
 
 QUEUE_GAP_SECONDS = 2     # silence between two consecutive calls
