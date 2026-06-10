@@ -71,6 +71,14 @@ ROMANIZED_SURNAMES = {
     "jegal", "sagong", "seomoon", "dokgo",
 }
 
+# Surnames that are also common Chinese pinyin/other-origin tokens. These are
+# NOT trusted as a Korean signal on their own (e.g. "Jin Zhu" is Chinese).
+AMBIGUOUS_SURNAMES = {
+    "jin", "ji", "min", "na", "ra", "in", "dan", "ban", "sa", "ma", "mo",
+    "bin", "dong", "du", "doo", "gil", "ki", "gi", "je", "tak", "wang",
+    "ye", "yong", "eun", "ok", "bong", "you", "an", "no", "ha", "won",
+}
+
 _queue: asyncio.Queue | None = None
 _current: dict | None = None
 _recent: list[dict] = []
@@ -88,6 +96,15 @@ def _has_hangul(text: str) -> bool:
 def looks_korean_romanized(name: str) -> bool:
     tokens = re.split(r"[\s\-]+", name.strip().lower())
     return any(t in ROMANIZED_SURNAMES for t in tokens if t)
+
+
+def has_strong_korean_surname(name: str) -> bool:
+    """True only for surnames that are unambiguously Korean (Kim, Jung, Park...)."""
+    tokens = re.split(r"[\s\-]+", name.strip().lower())
+    return any(
+        t in ROMANIZED_SURNAMES and t not in AMBIGUOUS_SURNAMES
+        for t in tokens if t
+    )
 
 
 def mask_name(name: str) -> str:
@@ -126,43 +143,71 @@ def _save_name_cache(cache: dict) -> None:
     tmp.replace(NAME_CACHE_PATH)
 
 
-async def _romanized_to_hangul(name: str) -> str | None:
-    """Return Hangul name, or None if conversion unavailable/failed."""
+CLASSIFY_PROMPT = (
+    "You are given a person's name written in Latin letters. "
+    "If it is a Korean person's name (romanized Korean), convert it to Hangul "
+    "and reply with ONLY the Hangul name, family name first, no explanation. "
+    "If it is NOT a Korean name (e.g. Chinese, Vietnamese, Japanese, Western, "
+    "Indian, or any other origin), reply with exactly NOT_KOREAN. "
+    "Be strict: names like 'Jin Zhu', 'Xin Li', 'Bing Yan' are Chinese → NOT_KOREAN."
+)
+FORCE_CONVERT_PROMPT = (
+    "You convert romanized Korean person names to Hangul. "
+    "The given name IS a Korean person's name. "
+    "Reply with ONLY the Hangul name, family name first, no explanation."
+)
+
+
+async def _deepseek(system_prompt: str, user_content: str) -> str | None:
+    """One DeepSeek chat call with a single retry. Returns content or None."""
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    "https://api.deepseek.com/chat/completions",
+                    headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+                    json={
+                        "model": "deepseek-chat",
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_content},
+                        ],
+                        "temperature": 0,
+                        "max_tokens": 20,
+                    },
+                    timeout=12.0,
+                )
+            return r.json()["choices"][0]["message"]["content"].strip()
+        except Exception as e:  # noqa: BLE001
+            log.warning("deepseek call failed (attempt %d) for %r: %s", attempt + 1, user_content, e)
+            if attempt == 0:
+                await asyncio.sleep(0.8)
+    return None
+
+
+async def _romanized_to_hangul(name: str, force: bool = False) -> str | None:
+    """Return Hangul name, or None if not Korean / conversion failed.
+
+    force=True skips the is-it-Korean judgment and asks for a straight
+    conversion — used as a backstop when the surname is unambiguously Korean
+    but classification said NOT_KOREAN (or a previous bad result got cached).
+    """
     if not DEEPSEEK_API_KEY:
         return None
     key = name.strip().lower()
-    with _name_cache_lock:
-        cache = _load_name_cache()
-        if key in cache:
-            return cache[key] or None
-    try:
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                "https://api.deepseek.com/chat/completions",
-                headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [
-                        {"role": "system", "content": (
-                            "You are given a person's name written in Latin letters. "
-                            "If it is a Korean person's name (romanized Korean), convert it to Hangul "
-                            "and reply with ONLY the Hangul name, family name first, no explanation. "
-                            "If it is NOT a Korean name (e.g. Chinese, Vietnamese, Japanese, Western, "
-                            "Indian, or any other origin), reply with exactly NOT_KOREAN. "
-                            "Be strict: names like 'Jin Zhu', 'Xin Li', 'Bing Yan' are Chinese → NOT_KOREAN."
-                        )},
-                        {"role": "user", "content": name.strip()},
-                    ],
-                    "temperature": 0,
-                    "max_tokens": 20,
-                },
-                timeout=8.0,
-            )
-        out = r.json()["choices"][0]["message"]["content"].strip()
-        result = out if (_has_hangul(out) and len(out) <= 10) else ""
-    except Exception as e:  # noqa: BLE001
-        log.warning("deepseek name conversion failed for %r: %s", name, e)
-        return None  # do not cache transient failures
+    if not force:
+        with _name_cache_lock:
+            cache = _load_name_cache()
+            if key in cache:
+                return cache[key] or None
+
+    prompt = FORCE_CONVERT_PROMPT if force else CLASSIFY_PROMPT
+    out = await _deepseek(prompt, name.strip())
+    if out is None:
+        return None  # transient failure — never cached
+    result = out if (_has_hangul(out) and len(out) <= 10) else ""
+    if force and not result:
+        return None  # forced conversion produced garbage; don't poison cache
     with _name_cache_lock:
         cache = _load_name_cache()
         cache[key] = result
@@ -202,8 +247,16 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
 
     if DEEPSEEK_API_KEY:
         hangul = await _romanized_to_hangul(name)
+        # Backstop: unambiguous Korean surname (Kim/Jung/Park/...) but the
+        # classifier said no (or its call failed) → force a conversion. This
+        # also heals previously mis-cached NOT_KOREAN entries.
+        if not hangul and has_strong_korean_surname(name):
+            hangul = await _romanized_to_hangul(name, force=True)
         if hangul:
             return "ko", name, f"{hangul} 민원인님, {counter}번 창구로 오세요."
+        if has_strong_korean_surname(name):
+            # LLM unreachable entirely — still announce in Korean voice
+            return "ko", name, f"{name} 민원인님, {counter}번 창구로 오세요."
         return "en", name, f"{name}, please proceed to counter number {counter}."
 
     # No LLM available — fall back to the surname table
