@@ -32,20 +32,23 @@ from app.romanize import romanize_full
 from app.vcita import COUNTERS, fetch_appointments_for_date, group_by_counter
 
 LUNCH_DIVIDER = "12:00"
-ROLLOVER_HOUR = 17
 WARM_INTERVAL_SECONDS = 50
 
-# Consulate business hours (America/Toronto). Outside this window, vcita is NOT
-# polled and the browser auto-refresh tag is omitted to avoid wasting API quota.
+# Consulate business hours (America/Toronto). Outside this window vcita is not
+# polled on a schedule — but the cache is always pre-warmed so the dashboard is
+# never empty. The dashboard ALSO rolls to the next day's reservations the
+# moment business closes, so staff arriving the next morning see the right list.
 BUSINESS_START = (8, 45)
 BUSINESS_END   = (16, 30)
 
 
+def _to_min(hm: tuple[int, int]) -> int:
+    return hm[0] * 60 + hm[1]
+
+
 def _in_business_hours(now_local: datetime) -> bool:
     cur = now_local.hour * 60 + now_local.minute
-    start = BUSINESS_START[0] * 60 + BUSINESS_START[1]
-    end   = BUSINESS_END[0]   * 60 + BUSINESS_END[1]
-    return start <= cur < end
+    return _to_min(BUSINESS_START) <= cur < _to_min(BUSINESS_END)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -87,7 +90,9 @@ def require_session_api(
 # ---------- Date / passcode helpers ----------
 
 def _target_date(now_local: datetime) -> date:
-    if now_local.hour >= ROLLOVER_HOUR:
+    """Once business closes (BUSINESS_END), roll the dashboard to next day's list."""
+    cur = now_local.hour * 60 + now_local.minute
+    if cur >= _to_min(BUSINESS_END):
         return (now_local + timedelta(days=1)).date()
     return now_local.date()
 
@@ -179,8 +184,14 @@ async def _build_payload(role: str) -> dict:
     if in_hours:
         appts = await fetch_appointments_for_date(target)
     else:
-        # Outside business hours → serve whatever's cached, do NOT call vcita
-        appts = vcita.peek_cache(target)
+        cached = vcita.peek_cache(target)
+        if cached:
+            appts = cached
+        else:
+            # Safety net: outside hours but no cache yet (e.g., just past 16:30
+            # rollover, or first hit after a fresh restart at night). Fetch once
+            # so the dashboard is never empty.
+            appts = await fetch_appointments_for_date(target)
 
     states = store.get_states(target)
     grouped_raw = group_by_counter(appts)
@@ -217,15 +228,25 @@ async def _build_payload(role: str) -> dict:
 # ---------- Warm loop ----------
 
 async def _warm_loop() -> None:
-    bootstrapped = False  # on first iteration, fetch once regardless of hours
+    """Keep the cache populated at all times.
+
+    Fires a vcita fetch when ANY of these is true:
+      * First iteration after startup (bootstrap)
+      * Target date just rolled over (e.g., 16:30 → tomorrow's list)
+      * Inside business hours (regular live refresh)
+
+    Otherwise idles — outside-hours requests will be served from cache.
+    """
+    last_target: date | None = None
     while True:
         try:
             now_local = datetime.now(ZoneInfo(LOCAL_TZ))
             target = _target_date(now_local)
             store.get_passcode(target)  # passcode is local-only, run always
-            if not bootstrapped or _in_business_hours(now_local):
+            target_changed = last_target is not None and target != last_target
+            if last_target is None or target_changed or _in_business_hours(now_local):
                 await fetch_appointments_for_date(target)
-                bootstrapped = True
+            last_target = target
         except Exception as e:  # noqa: BLE001
             log.warning("cache warm failed: %s", e)
         await asyncio.sleep(WARM_INTERVAL_SECONDS)
