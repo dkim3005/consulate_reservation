@@ -402,15 +402,18 @@
       border-radius: 10px;
       letter-spacing: 0.02em;
     }
-    /* Waiting/Active are the states that matter most — make them pop */
+    /* Waiting/Active are the states that matter most — make them pop.
+       outline-offset keeps the thick line INSIDE the card bounds. */
     .card.state-waiting {
       background: var(--waiting-vivid) !important;
       outline: 2px solid var(--waiting) !important;
+      outline-offset: -2px !important;
     }
     .card.state-waiting .state-badge{ display: inline-flex; background: var(--waiting); }
     .card.state-active {
       background: var(--active-vivid) !important;
       outline: 2px solid var(--active) !important;
+      outline-offset: -2px !important;
     }
     .card.state-active  .state-badge{ display: inline-flex; background: var(--active); }
     .card.state-done                { background: var(--done-soft); opacity: 0.6; }
@@ -510,6 +513,7 @@
       overflow: hidden;
       padding: 7px 10px;
       outline: 1px solid var(--border);
+      outline-offset: -1px;   /* draw inside the card, never into neighbours */
       transition: opacity 0.15s, box-shadow 0.15s, transform 0.05s;
     }
     /* Spotlight: focus the card under the cursor, soften the rest.
