@@ -27,10 +27,16 @@
       --text-2: #cbd5e1;
       --text-3: #94a3b8;
       --accent: #60a5fa;
-      --arrived: #34d399;
-      --arrived-soft: rgba(52,211,153,0.14);
+      --waiting: #fbbf24;
+      --waiting-soft: rgba(251,191,36,0.16);
+      --active: #60a5fa;
+      --active-soft: rgba(96,165,250,0.16);
+      --done: #34d399;
+      --done-soft: rgba(52,211,153,0.14);
       --noshow: #f87171;
       --noshow-soft: rgba(248,113,113,0.14);
+      --late: #fbbf24;
+      --late-soft: rgba(251,191,36,0.10);
       --pending: #3a4a65;
       --c1: #818cf8;
       --c2: #34d399;
@@ -55,10 +61,16 @@
       --text-2: #4b5563;
       --text-3: #9ca3af;
       --accent: #2563eb;
-      --arrived: #059669;
-      --arrived-soft: #ecfdf5;
+      --waiting: #d97706;
+      --waiting-soft: #fffbeb;
+      --active: #2563eb;
+      --active-soft: #eff6ff;
+      --done: #059669;
+      --done-soft: #ecfdf5;
       --noshow: #dc2626;
       --noshow-soft: #fef2f2;
+      --late: #d97706;
+      --late-soft: #fffbeb;
       --pending: #e5e7eb;
       --c1: #4f46e5;
       --c2: #059669;
@@ -256,8 +268,9 @@
       border-radius: 999px;
     }
     .legend .dot { width: 8px; height: 8px; border-radius: 99px; }
-    .legend .dot.pend { background: var(--pending); }
-    .legend .dot.arr  { background: var(--arrived); }
+    .legend .dot.wait { background: var(--waiting); }
+    .legend .dot.act  { background: var(--active); }
+    .legend .dot.done { background: var(--done); }
     .legend .dot.ns   { background: var(--noshow); }
     .legend .hint { color: var(--text-3); margin-left: auto; }
 
@@ -364,23 +377,52 @@
       font-size: 11px;
       line-height: 1.35;
     }
-    .card .state-badge {
+    .card .state-badge, .card .auto-badge {
       display: none;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
       font-weight: 700;
       color: white;
       line-height: 1;
       flex-shrink: 0;
     }
-    .card.state-arrived               { background: var(--arrived-soft); opacity: 0.65; }
-    .card.state-arrived .state-badge  { display: inline-flex; background: var(--arrived); }
-    .card.state-noshow                { background: var(--noshow-soft); opacity: 0.65; }
-    .card.state-noshow  .state-badge  { display: inline-flex; background: var(--noshow); }
+    .card .state-badge {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      font-size: 11px;
+    }
+    .card .auto-badge {
+      padding: 2px 7px;
+      font-size: 10.5px;
+      border-radius: 10px;
+      letter-spacing: 0.02em;
+    }
+    .card.state-waiting             { background: var(--waiting-soft); }
+    .card.state-waiting .state-badge{ display: inline-flex; background: var(--waiting); }
+    .card.state-active              { background: var(--active-soft); }
+    .card.state-active  .state-badge{ display: inline-flex; background: var(--active); }
+    .card.state-done                { background: var(--done-soft); opacity: 0.6; }
+    .card.state-done    .state-badge{ display: inline-flex; background: var(--done); }
+    .card.state-noshow              { background: var(--noshow-soft); opacity: 0.6; }
+    .card.state-noshow  .state-badge{ display: inline-flex; background: var(--noshow); }
+
+    /* Auto-states fire only when no manual state is set */
+    .card:not(.state-waiting):not(.state-active):not(.state-done):not(.state-noshow).auto-late {
+      background: var(--late-soft);
+    }
+    .card:not(.state-waiting):not(.state-active):not(.state-done):not(.state-noshow).auto-late .auto-badge {
+      display: inline-flex;
+      background: var(--late);
+    }
+    .card:not(.state-waiting):not(.state-active):not(.state-done):not(.state-noshow).auto-noshow {
+      background: var(--noshow-soft);
+      opacity: 0.55;
+    }
+    .card:not(.state-waiting):not(.state-active):not(.state-done):not(.state-noshow).auto-noshow .auto-badge {
+      display: inline-flex;
+      background: var(--noshow);
+    }
 
     .view-grouped { display: none; }
     .view-table   { display: block; }
@@ -693,10 +735,11 @@
     </div>
 
     <div class="legend">
-      <span class="pill"><span class="dot pend"></span>Pending</span>
-      <span class="pill"><span class="dot arr"></span>Arrived</span>
+      <span class="pill"><span class="dot wait"></span>Waiting</span>
+      <span class="pill"><span class="dot act"></span>Active</span>
+      <span class="pill"><span class="dot done"></span>Done</span>
       <span class="pill"><span class="dot ns"></span>No-show</span>
-      <span class="hint">Tap to cycle</span>
+      <span class="hint">Tap to cycle · auto-marked late after appointment time</span>
     </div>
   </div>
 
@@ -732,10 +775,11 @@
                   {% for cell in row.cells %}
                     {% if cell %}
                       <td class="col-{{ loop.index }}">
-                        <div class="card col-{{ loop.index }} {% if cell.attendance %}state-{{ cell.attendance }}{% endif %}" data-id="{{ cell.id }}">
+                        <div class="card col-{{ loop.index }} {% if cell.attendance %}state-{{ cell.attendance }}{% endif %}" data-id="{{ cell.id }}" data-start-iso="{{ cell.start_iso }}">
                           <div class="top-row">
                             <span class="duration">{{ cell.time_range }}</span>
-                            <span class="state-badge">{% if cell.attendance == 'arrived' %}✓{% elif cell.attendance == 'noshow' %}✗{% endif %}</span>
+                            <span class="state-badge">{% if cell.attendance == 'waiting' %}⏳{% elif cell.attendance == 'active' %}▶{% elif cell.attendance == 'done' %}✓{% elif cell.attendance == 'noshow' %}✗{% endif %}</span>
+                            <span class="auto-badge"></span>
                           </div>
                           <div class="name-ko">{{ cell.name_ko or '—' }}</div>
                           <div class="name-en">{{ cell.name_en or '—' }}</div>
@@ -780,10 +824,11 @@
             {% if split.am %}
               <div class="period-label" id="counter-{{ col_idx }}-am">AM</div>
               {% for a in split.am %}
-                <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}">
+                <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}" data-start-iso="{{ a.start_iso }}">
                   <div class="top-row">
                     <span class="duration">{{ a.time_range }}</span>
-                    <span class="state-badge">{% if a.attendance == 'arrived' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
+                    <span class="state-badge">{% if a.attendance == 'waiting' %}⏳{% elif a.attendance == 'active' %}▶{% elif a.attendance == 'done' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
+                    <span class="auto-badge"></span>
                   </div>
                   <div class="name-ko">{{ a.name_ko or '—' }}</div>
                   <div class="name-en">{{ a.name_en or '—' }}</div>
@@ -804,10 +849,11 @@
             {% if split.pm %}
               <div class="period-label" id="counter-{{ col_idx }}-pm">PM</div>
               {% for a in split.pm %}
-                <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}">
+                <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}" data-start-iso="{{ a.start_iso }}">
                   <div class="top-row">
                     <span class="duration">{{ a.time_range }}</span>
-                    <span class="state-badge">{% if a.attendance == 'arrived' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
+                    <span class="state-badge">{% if a.attendance == 'waiting' %}⏳{% elif a.attendance == 'active' %}▶{% elif a.attendance == 'done' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
+                    <span class="auto-badge"></span>
                   </div>
                   <div class="name-ko">{{ a.name_ko or '—' }}</div>
                   <div class="name-en">{{ a.name_en or '—' }}</div>
@@ -869,22 +915,81 @@
       });
 
       // ---- Attendance cycle ----
-      const STATES = ['', 'arrived', 'noshow'];
-      const LABELS = { 'arrived': '✓', 'noshow': '✗', '': '' };
+      const STATES = ['', 'waiting', 'active', 'done', 'noshow'];
+      const LABELS = { 'waiting': '⏳', 'active': '▶', 'done': '✓', 'noshow': '✗', '': '' };
 
       function currentState(card) {
-        if (card.classList.contains('state-arrived')) return 'arrived';
-        if (card.classList.contains('state-noshow'))  return 'noshow';
+        for (const s of STATES) {
+          if (s && card.classList.contains('state-' + s)) return s;
+        }
         return '';
       }
       function applyEverywhere(id, state) {
         document.querySelectorAll('.card[data-id="' + id + '"]').forEach(function (c) {
-          c.classList.remove('state-arrived', 'state-noshow');
+          STATES.forEach(function (s) { if (s) c.classList.remove('state-' + s); });
           if (state) c.classList.add('state-' + state);
           const badge = c.querySelector('.state-badge');
           if (badge) badge.textContent = LABELS[state] || '';
         });
+        syncAutoStates();
       }
+
+      // ---- Auto late / no-show (visual only, refreshes every minute) ----
+      const NOSHOW_AFTER_MS = 20 * 60 * 1000;
+      function syncAutoStates() {
+        const now = Date.now();
+        document.querySelectorAll('.card[data-start-iso]').forEach(function (card) {
+          const hasManual = !!currentState(card);
+          const badge = card.querySelector('.auto-badge');
+          if (hasManual) {
+            card.classList.remove('auto-late', 'auto-noshow');
+            if (badge) badge.textContent = '';
+            return;
+          }
+          const start = new Date(card.dataset.startIso).getTime();
+          const past = now - start;
+          if (past >= NOSHOW_AFTER_MS) {
+            card.classList.add('auto-noshow');
+            card.classList.remove('auto-late');
+            if (badge) badge.textContent = '✗ Auto';
+          } else if (past > 0) {
+            card.classList.add('auto-late');
+            card.classList.remove('auto-noshow');
+            if (badge) badge.textContent = '⏰ ' + Math.floor(past / 60000) + 'm late';
+          } else {
+            card.classList.remove('auto-late', 'auto-noshow');
+            if (badge) badge.textContent = '';
+          }
+        });
+      }
+      syncAutoStates();
+      setInterval(syncAutoStates, 60000);
+
+      // ---- Live attendance sync (10s polling) ----
+      // Pulls latest states from server and applies any deltas without a full
+      // page reload. Lets clicks on one device appear on others within ~10s.
+      async function syncFromServer() {
+        try {
+          const r = await fetch('/api/today', { credentials: 'same-origin' });
+          if (r.status === 401) { window.location.href = '/login'; return; }
+          if (!r.ok) return;
+          const data = await r.json();
+          const stateMap = {};
+          for (const items of Object.values(data.grouped || {})) {
+            for (const a of items) stateMap[a.id] = a.attendance || '';
+          }
+          document.querySelectorAll('.card[data-id]').forEach(function (card) {
+            const desired = stateMap[card.dataset.id];
+            if (desired === undefined) return;  // card not in server response
+            if (currentState(card) !== desired) {
+              applyEverywhere(card.dataset.id, desired);
+            }
+          });
+        } catch (e) {
+          // network blips are fine — next poll will recover
+        }
+      }
+      setInterval(syncFromServer, 10000);
       async function cycle(card) {
         const id = card.dataset.id;
         const next = STATES[(STATES.indexOf(currentState(card)) + 1) % STATES.length];

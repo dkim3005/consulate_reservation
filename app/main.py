@@ -69,10 +69,14 @@ async def _not_auth(request: Request, exc: NotAuthenticated) -> RedirectResponse
     return RedirectResponse(url="/login", status_code=303)
 
 
+def _current_target_iso() -> str:
+    return _target_date(datetime.now(ZoneInfo(LOCAL_TZ))).isoformat()
+
+
 def require_session(
     consulate_auth: str | None = Cookie(default=None, alias=auth.COOKIE_NAME),
 ) -> str:
-    role = auth.verify_cookie(consulate_auth)
+    role = auth.verify_cookie(consulate_auth, _current_target_iso())
     if not role:
         raise NotAuthenticated()
     return role
@@ -81,7 +85,7 @@ def require_session(
 def require_session_api(
     consulate_auth: str | None = Cookie(default=None, alias=auth.COOKIE_NAME),
 ) -> str:
-    role = auth.verify_cookie(consulate_auth)
+    role = auth.verify_cookie(consulate_auth, _current_target_iso())
     if not role:
         raise HTTPException(status_code=401, detail="not authenticated")
     return role
@@ -134,6 +138,7 @@ def _shape(appt: dict, states: dict[str, str]) -> dict:
         "id": appt.get("id"),
         "time": start_local.strftime("%H:%M"),
         "time_range": f"{start_local.strftime('%H:%M')}–{end_local.strftime('%H:%M')}",
+        "start_iso": start_local.isoformat(),
         "name_ko": name_ko,
         "name_en": name_en,
         "title_ko": title_ko,
@@ -289,7 +294,7 @@ async def do_login(request: Request, password: str = Form(...)):
     resp = RedirectResponse(url="/", status_code=303)
     resp.set_cookie(
         key=auth.COOKIE_NAME,
-        value=auth.make_cookie(role),
+        value=auth.make_cookie(role, target.isoformat()),
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",

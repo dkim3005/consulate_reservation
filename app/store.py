@@ -14,7 +14,7 @@ from datetime import date
 from pathlib import Path
 
 STORE_PATH = Path(__file__).resolve().parent.parent / "attendance.json"
-VALID_STATES = {"", "arrived", "noshow"}
+VALID_STATES = {"", "waiting", "active", "done", "noshow"}
 _lock = threading.Lock()
 
 
