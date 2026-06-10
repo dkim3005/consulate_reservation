@@ -86,37 +86,70 @@
     .topbar .clock .time { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; }
     .topbar .clock .date { font-size: 16px; color: var(--text-3); }
 
-    /* ===== Call banner ===== */
-    .call-banner {
-      flex-shrink: 0;
-      margin: 18px 28px 0;
-      border-radius: 18px;
-      background: linear-gradient(135deg, #064e3b, #065f46);
-      border: 2px solid var(--call);
-      padding: 26px 34px;
-      display: none;
+    /* ===== Full-screen call overlay (hospital-board style takeover) ===== */
+    .call-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      background: linear-gradient(160deg, #052e22, #064e3b 55%, #065f46);
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 24px;
+      justify-content: center;
+      gap: 28px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.35s, visibility 0.35s;
+    }
+    .call-overlay.show { opacity: 1; visibility: visible; }
+    .call-overlay .label {
+      font-size: 34px;
+      font-weight: 700;
+      color: #a7f3d0;
+      letter-spacing: 0.16em;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .call-overlay .label .ic { font-size: 44px; animation: ring 1.1s ease-in-out infinite; }
+    @keyframes ring {
+      0%, 100% { transform: rotate(0); }
+      15% { transform: rotate(-14deg); }
+      30% { transform: rotate(12deg); }
+      45% { transform: rotate(-8deg); }
+      60% { transform: rotate(6deg); }
+      75% { transform: rotate(0); }
+    }
+    .call-overlay .name {
+      font-size: 130px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      text-align: center;
+      max-width: 92vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .call-overlay .counter {
+      background: var(--call);
+      color: #052e22;
+      font-size: 84px;
+      font-weight: 900;
+      padding: 18px 64px;
+      border-radius: 24px;
+      font-variant-numeric: tabular-nums;
       animation: pulse 1.6s ease-in-out infinite;
     }
-    .call-banner.show { display: flex; }
     @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.35); }
-      50% { box-shadow: 0 0 0 16px rgba(52,211,153,0); }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.45); }
+      50% { box-shadow: 0 0 0 28px rgba(52,211,153,0); }
     }
-    .call-banner .icon { font-size: 60px; }
-    .call-banner .name { font-size: 64px; font-weight: 800; letter-spacing: -0.02em; }
-    .call-banner .label { font-size: 20px; color: #a7f3d0; margin-bottom: 2px; font-weight: 600; }
-    .call-banner .counter {
-      margin-left: auto;
-      background: var(--call);
-      color: #064e3b;
-      font-size: 56px;
-      font-weight: 900;
-      padding: 12px 30px;
-      border-radius: 14px;
-      white-space: nowrap;
-      font-variant-numeric: tabular-nums;
+    .call-overlay .sub {
+      font-size: 26px;
+      color: #d1fae5;
+      font-weight: 500;
     }
 
     /* ===== Columns ===== */
@@ -295,13 +328,11 @@
     </div>
   </div>
 
-  <div class="call-banner" id="call-banner">
-    <span class="icon">📢</span>
-    <div>
-      <div class="label">호출 / Now Calling</div>
-      <div class="name" id="call-name">—</div>
-    </div>
+  <div class="call-overlay" id="call-overlay">
+    <div class="label"><span class="ic">📢</span>호출 · NOW CALLING</div>
+    <div class="name" id="call-name">—</div>
     <div class="counter" id="call-counter">—</div>
+    <div class="sub">창구로 와 주시기 바랍니다 · Please proceed to the counter</div>
   </div>
 
   <div class="cols">
@@ -434,8 +465,8 @@
 
       // ---- Poll ----
       let lastCallId = null;
-      const banner = document.getElementById('call-banner');
-      let bannerTimer = null;
+      const overlay = document.getElementById('call-overlay');
+      let overlayTimer = null;
 
       async function poll() {
         try {
@@ -457,9 +488,9 @@
             lastCallId = cur.id;
             document.getElementById('call-name').textContent = cur.name;
             document.getElementById('call-counter').textContent = cur.counter + '번 창구';
-            banner.classList.add('show');
-            clearTimeout(bannerTimer);
-            bannerTimer = setTimeout(function () { banner.classList.remove('show'); }, 5000);
+            overlay.classList.add('show');
+            clearTimeout(overlayTimer);
+            overlayTimer = setTimeout(function () { overlay.classList.remove('show'); }, 10000);
             if (cur.audio_url) playTwice(cur.audio_url);
             else speakTwiceFallback(cur.text, cur.lang);
           }
