@@ -512,9 +512,10 @@
       outline: 1px solid var(--border);
       transition: opacity 0.15s, box-shadow 0.15s, transform 0.05s;
     }
-    /* Spotlight: focus the card under the cursor, soften the rest */
+    /* Spotlight: focus the card under the cursor, soften the rest.
+       Waiting/Active cards stay bright — they're the states that matter. */
     @media (hover: hover) {
-      .timeline:hover .card:not(:hover) { opacity: 0.45; }
+      .timeline:hover .card:not(:hover):not(.state-waiting):not(.state-active) { opacity: 0.45; }
       .timeline .card:hover {
         opacity: 1;
         outline-color: var(--accent);

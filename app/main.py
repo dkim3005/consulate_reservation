@@ -172,9 +172,21 @@ def _build_timeline(grouped: dict[str, list[dict]], columns: list[str]) -> dict 
     hi = ((hi + 29) // 30) * 30
     total_slots = (hi - lo) // TIMELINE_SLOT_MIN
 
+    # Clamp blocks that would run into the next appointment of the same
+    # counter (overlapping bookings exist in vcita) so cards never overlap.
+    by_col: dict[int, list[dict]] = {}
+    for it in items:
+        by_col.setdefault(it["col"], []).append(it)
+    for col_items in by_col.values():
+        col_items.sort(key=lambda x: x["_s"])
+        for cur, nxt in zip(col_items, col_items[1:]):
+            if cur["_e"] > nxt["_s"]:
+                cur["_e"] = nxt["_s"]
+
     for it in items:
         it["row"] = (it["_s"] - lo) // TIMELINE_SLOT_MIN + 1
-        it["span"] = max((it["_e"] - it["_s"]) // TIMELINE_SLOT_MIN, 2)
+        span_slots = (it["_e"] - it["_s"]) // TIMELINE_SLOT_MIN
+        it["span"] = max(span_slots, 1)
         del it["_s"], it["_e"]
 
     labels = [
