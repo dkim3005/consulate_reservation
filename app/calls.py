@@ -59,7 +59,7 @@ OPENAI_TTS_INSTRUCTIONS_EN = (
 )
 
 QUEUE_GAP_SECONDS = 2     # silence between two consecutive calls
-CALL_SLOT_SECONDS = 16    # how long a call stays "current" (2 plays + pause)
+CALL_SLOT_SECONDS = 24    # how long a call stays "current" (3 plays + pauses)
 RECENT_LIMIT = 6
 DEDUPE_SECONDS = 25       # ignore re-call of same appointment within this window
 

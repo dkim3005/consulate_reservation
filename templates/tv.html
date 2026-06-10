@@ -420,15 +420,16 @@
 
       const announcer = new Audio();
 
-      // done() fires when the announcement (2 plays) actually finishes,
-      // so the overlay can hold for the full audio + a tail.
-      function playTwice(url, done) {
+      // done() fires when the announcement (PLAY_COUNT plays) actually
+      // finishes, so the overlay can hold for the full audio + a tail.
+      const PLAY_COUNT = 3;
+      function playRepeated(url, done) {
         if (!audioUnlocked || !url) { if (done) done(); return; }
         let plays = 0;
         announcer.src = url;
         announcer.onended = function () {
           plays += 1;
-          if (plays < 2) {
+          if (plays < PLAY_COUNT) {
             setTimeout(function () {
               announcer.play().catch(function () { if (done) done(); });
             }, 1200);
@@ -439,15 +440,17 @@
         announcer.play().catch(function () { if (done) done(); });
       }
 
-      function speakTwiceFallback(text, lang, done) {
+      function speakRepeatedFallback(text, lang, done) {
         if (!audioUnlocked || !('speechSynthesis' in window)) { if (done) done(); return; }
-        const u1 = new SpeechSynthesisUtterance(text);
-        u1.lang = lang === 'ko' ? 'ko-KR' : 'en-US';
-        const u2 = new SpeechSynthesisUtterance(text);
-        u2.lang = u1.lang;
-        if (done) u2.onend = function () { done(); };
-        speechSynthesis.speak(u1);
-        speechSynthesis.speak(u2);
+        const lc = lang === 'ko' ? 'ko-KR' : 'en-US';
+        let last = null;
+        for (let i = 0; i < PLAY_COUNT; i++) {
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = lc;
+          speechSynthesis.speak(u);
+          last = u;
+        }
+        if (done && last) last.onend = function () { done(); };
       }
 
       // ---- Render helpers ----
@@ -504,8 +507,8 @@
               clearTimeout(overlayTimer);
               overlayTimer = setTimeout(function () { overlay.classList.remove('show'); }, 3000);
             };
-            if (cur.audio_url) playTwice(cur.audio_url, hideAfterTail);
-            else speakTwiceFallback(cur.text, cur.lang, hideAfterTail);
+            if (cur.audio_url) playRepeated(cur.audio_url, hideAfterTail);
+            else speakRepeatedFallback(cur.text, cur.lang, hideAfterTail);
           }
         } catch (e) { /* next poll recovers */ }
       }
