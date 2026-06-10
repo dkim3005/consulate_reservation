@@ -470,8 +470,26 @@
       left: 0;
     }
     table.schedule thead th.time-col::after { display: none; }
-    table.schedule td { vertical-align: top; height: 1px; /* triggers child height:100% */ }
+    /* Uniform time grid: every row is the same height so the time axis reads
+       evenly. Long content is ellipsized instead of stretching the row. */
+    table.schedule tbody td { vertical-align: top; height: 104px; }
+    table.schedule tbody tr.lunch-row td { height: auto; }
     table.schedule td.empty { background: transparent; }
+
+    .view-table .card { overflow: hidden; }
+    .view-table .card .name-ko,
+    .view-table .card .name-en {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .view-table .card .title-ko,
+    .view-table .card .title-en {
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
 
     /* ---- Per-counter dim toggle (wide table view only, per-device) ---- */
     table.schedule thead th[class*="col-"] {
