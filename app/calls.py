@@ -40,8 +40,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 TTS_DIR = BASE_DIR / "static" / "tts"
 NAME_CACHE_PATH = BASE_DIR / "name_cache.json"
 
-VOICE_KO = "ko-KR-SunHiNeural"
-VOICE_EN = "en-US-JennyNeural"
+VOICE_KO = "ko-KR-HyunsuMultilingualNeural"
+VOICE_EN = "en-US-AvaMultilingualNeural"
+TTS_RATE = "-10%"  # slightly slower for lobby clarity
 
 QUEUE_GAP_SECONDS = 5     # silence between two consecutive calls
 CALL_SLOT_SECONDS = 16    # how long a call stays "current" (2 plays + pause)
@@ -143,9 +144,12 @@ async def _romanized_to_hangul(name: str) -> str | None:
                     "model": "deepseek-chat",
                     "messages": [
                         {"role": "system", "content": (
-                            "You convert romanized Korean person names to Hangul. "
-                            "Reply with ONLY the Hangul name, no explanation. "
-                            "If the name is not a Korean name, reply with exactly NOT_KOREAN."
+                            "You are given a person's name written in Latin letters. "
+                            "If it is a Korean person's name (romanized Korean), convert it to Hangul "
+                            "and reply with ONLY the Hangul name, family name first, no explanation. "
+                            "If it is NOT a Korean name (e.g. Chinese, Vietnamese, Japanese, Western, "
+                            "Indian, or any other origin), reply with exactly NOT_KOREAN. "
+                            "Be strict: names like 'Jin Zhu', 'Xin Li', 'Bing Yan' are Chinese → NOT_KOREAN."
                         )},
                         {"role": "user", "content": name.strip()},
                     ],
@@ -173,12 +177,12 @@ async def _ensure_tts(text: str, lang: str) -> str | None:
     if edge_tts is None:
         return None
     voice = VOICE_KO if lang == "ko" else VOICE_EN
-    digest = hashlib.sha1(f"{voice}|{text}".encode()).hexdigest()[:20]
+    digest = hashlib.sha1(f"{voice}|{TTS_RATE}|{text}".encode()).hexdigest()[:20]
     path = TTS_DIR / f"{digest}.mp3"
     if not path.exists():
         TTS_DIR.mkdir(parents=True, exist_ok=True)
         try:
-            await edge_tts.Communicate(text, voice).save(str(path))
+            await edge_tts.Communicate(text, voice, rate=TTS_RATE).save(str(path))
         except Exception as e:  # noqa: BLE001
             log.warning("edge-tts failed for %r: %s", text, e)
             return None
@@ -186,14 +190,25 @@ async def _ensure_tts(text: str, lang: str) -> str | None:
 
 
 async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]:
-    """Return (lang, display_name, announcement_text)."""
+    """Return (lang, display_name, announcement_text).
+
+    Latin-script names are classified by DeepSeek (cached): Korean → Hangul +
+    Korean announcement, everything else → English. The surname heuristic is
+    only a fallback when no API key is configured.
+    """
     name = name.strip()
     if _has_hangul(name):
         return "ko", name, f"{name} 민원인님, {counter}번 창구로 오세요."
-    if looks_korean_romanized(name):
+
+    if DEEPSEEK_API_KEY:
         hangul = await _romanized_to_hangul(name)
-        spoken = hangul or name
-        return "ko", name, f"{spoken} 민원인님, {counter}번 창구로 오세요."
+        if hangul:
+            return "ko", name, f"{hangul} 민원인님, {counter}번 창구로 오세요."
+        return "en", name, f"{name}, please proceed to counter number {counter}."
+
+    # No LLM available — fall back to the surname table
+    if looks_korean_romanized(name):
+        return "ko", name, f"{name} 민원인님, {counter}번 창구로 오세요."
     return "en", name, f"{name}, please proceed to counter number {counter}."
 
 
