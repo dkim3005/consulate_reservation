@@ -179,11 +179,16 @@ NAME_CACHE_VERSION = "v2"
 
 
 def _llm_endpoint() -> tuple[str, str, str] | None:
-    """Returns (url, api_key, model). OpenAI primary, DeepSeek fallback."""
-    if OPENAI_API_KEY:
-        return "https://api.openai.com/v1/chat/completions", OPENAI_API_KEY, "gpt-4o-mini"
+    """Returns (url, api_key, model) for name classification.
+
+    DeepSeek primary (with the v2 prompt it scores identically to gpt-4o-mini
+    on the consulate test set), OpenAI fallback. TTS is unrelated — that stays
+    on OpenAI regardless.
+    """
     if DEEPSEEK_API_KEY:
         return "https://api.deepseek.com/chat/completions", DEEPSEEK_API_KEY, "deepseek-chat"
+    if OPENAI_API_KEY:
+        return "https://api.openai.com/v1/chat/completions", OPENAI_API_KEY, "gpt-4o-mini"
     return None
 
 
