@@ -413,7 +413,10 @@
       }
 
       // ---- Render helpers ----
-      function renderRows(elId, items, cntId) {
+      // Waiting / In-Service rows show no counter: the reserved counter can
+      // change at call time (e.g. vacation coverage), so the counter is only
+      // shown where it is authoritative — the call banner and recent calls.
+      function renderRows(elId, items, cntId, showCounter) {
         const el = document.getElementById(elId);
         document.getElementById(cntId).textContent = items.length;
         if (!items.length) {
@@ -424,7 +427,7 @@
           return '<div class="row">' +
             (it.time ? '<span class="time">' + it.time + '</span>' : '') +
             '<span class="name">' + it.name + '</span>' +
-            '<span class="counter">' + it.counter + '번</span>' +
+            (showCounter ? '<span class="counter">' + it.counter + '번 창구</span>' : '') +
           '</div>';
         }).join('');
       }
@@ -441,13 +444,13 @@
           if (!r.ok) return;
           const d = await r.json();
 
-          renderRows('list-waiting', d.waiting, 'cnt-waiting');
-          renderRows('list-active', d.active, 'cnt-active');
+          renderRows('list-waiting', d.waiting, 'cnt-waiting', false);
+          renderRows('list-active', d.active, 'cnt-active', false);
           renderRows('list-recent',
             (d.call.recent || []).map(function (c) {
               return { time: '', name: c.name, counter: c.counter };
             }),
-            'cnt-recent');
+            'cnt-recent', true);
 
           const cur = d.call.current;
           if (cur && cur.id !== lastCallId) {
