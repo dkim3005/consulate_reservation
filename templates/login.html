@@ -228,7 +228,7 @@
     <form method="post" action="/login">
       <div class="field">
         <label for="password">비밀번호 / Password</label>
-        <input id="password" name="password" type="password" required autofocus
+        <input id="password" name="password" type="password" required
                autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false">
       </div>
       <button class="submit" type="submit">로그인 · Sign in</button>
@@ -242,6 +242,14 @@
 
   <script>
     (function () {
+      // Desktop-only autofocus. On iOS, the autofocus attribute leaves the
+      // field "focused without keyboard", and tapping an already-focused
+      // input doesn't raise the keyboard — so never autofocus on touch.
+      if (!('ontouchstart' in window) && !navigator.maxTouchPoints) {
+        const pw = document.getElementById('password');
+        if (pw) pw.focus();
+      }
+
       const KEY = 'consulate-theme';
       const root = document.documentElement;
       document.querySelectorAll('[data-set-theme]').forEach(function (btn) {
