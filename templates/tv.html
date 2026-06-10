@@ -245,7 +245,7 @@
     .panel.recent  h2 { color: var(--text-2); }
     .panel .list {
       flex: 1;
-      overflow-y: auto;
+      overflow: hidden;   /* no scrollbar — overflow is simply clipped */
       padding: 14px 16px;
       display: flex;
       flex-direction: column;
