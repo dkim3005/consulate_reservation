@@ -1,6 +1,8 @@
 .env
 attendance.json
 attendance.tmp
+name_cache.json
+static/tts/
 *:Zone.Identifier
 __pycache__/
 *.pyc

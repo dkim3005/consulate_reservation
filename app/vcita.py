@@ -42,7 +42,9 @@ async def _fetch_page(client: httpx.AsyncClient, page: int) -> dict:
         f"{VCITA_BASE_URL}{APPOINTMENTS_PATH}",
         headers=_headers(),
         params={
-            "state": "scheduled",
+            # include "done" so appointments stay visible after vcita marks
+            # them completed when their time passes
+            "state": "scheduled,done",
             "sort": "start_at:ASC",
             "per_page": 100,
             "page": page,

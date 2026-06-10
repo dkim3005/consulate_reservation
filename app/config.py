@@ -15,6 +15,8 @@ VCITA_ACCESS_TOKEN = _required("VCITA_ACCESS_TOKEN")
 ADMIN_PASSWORD = _required("ADMIN_PASSWORD")
 SESSION_SECRET = _required("SESSION_SECRET")
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") == "1"
+# Optional: used to convert romanized Korean names to Hangul for voice calls
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY") or os.getenv("deepseek")
 
 VCITA_BASE_URL = "https://api.vcita.biz"
 LOCAL_TZ = "America/Toronto"

@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>대기 현황 · 주토론토총영사관</title>
+  <link rel="icon" type="image/png" href="/static/kor.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --bg: #0b1220;
+      --surface: #131c2e;
+      --surface-2: #1c2540;
+      --border: #2a3a55;
+      --text: #f1f5f9;
+      --text-2: #cbd5e1;
+      --text-3: #94a3b8;
+      --accent: #60a5fa;
+      --waiting: #fbbf24;
+      --active: #60a5fa;
+      --call: #34d399;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+                   system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      letter-spacing: -0.01em;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ===== Top bar ===== */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .topbar img { width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 6px; padding: 3px; }
+    .topbar .ko { font-size: 19px; font-weight: 700; }
+    .topbar .en { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+    .topbar .clock {
+      margin-left: auto;
+      text-align: right;
+    }
+    .topbar .clock .time { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .topbar .clock .date { font-size: 13px; color: var(--text-3); }
+
+    /* ===== Call banner ===== */
+    .call-banner {
+      flex-shrink: 0;
+      margin: 18px 28px 0;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #064e3b, #065f46);
+      border: 2px solid var(--call);
+      padding: 26px 34px;
+      display: none;
+      align-items: center;
+      gap: 24px;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    .call-banner.show { display: flex; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.35); }
+      50% { box-shadow: 0 0 0 16px rgba(52,211,153,0); }
+    }
+    .call-banner .icon { font-size: 44px; }
+    .call-banner .name { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; }
+    .call-banner .label { font-size: 16px; color: #a7f3d0; margin-bottom: 2px; font-weight: 600; }
+    .call-banner .counter {
+      margin-left: auto;
+      background: var(--call);
+      color: #064e3b;
+      font-size: 40px;
+      font-weight: 900;
+      padding: 12px 30px;
+      border-radius: 14px;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ===== Columns ===== */
+    .cols {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 18px;
+      padding: 18px 28px 24px;
+      min-height: 0;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel h2 {
+      margin: 0;
+      padding: 14px 20px;
+      font-size: 17px;
+      font-weight: 800;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: -0.015em;
+    }
+    .panel h2 .en { font-size: 12px; color: var(--text-3); font-weight: 500; }
+    .panel h2 .cnt {
+      margin-left: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 14px;
+      padding: 2px 12px;
+      border-radius: 99px;
+      font-variant-numeric: tabular-nums;
+    }
+    .panel.waiting h2 { color: var(--waiting); }
+    .panel.active  h2 { color: var(--active); }
+    .panel.recent  h2 { color: var(--text-2); }
+    .panel .list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+    }
+    .row .time { font-size: 16px; font-weight: 700; color: var(--text-3); font-variant-numeric: tabular-nums; width: 56px; }
+    .row .name { font-size: 22px; font-weight: 700; letter-spacing: -0.015em; flex: 1; }
+    .row .counter {
+      font-size: 15px;
+      font-weight: 800;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      padding: 4px 14px;
+      border-radius: 8px;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .panel.waiting .row .counter { color: var(--waiting); }
+    .panel.active  .row .counter { color: var(--active); }
+    .panel.recent  .row { opacity: 0.75; }
+    .panel.recent  .row .counter { color: var(--call); }
+    .empty {
+      color: var(--text-3);
+      text-align: center;
+      padding: 40px 0;
+      font-size: 15px;
+    }
+
+    /* ===== Audio unlock overlay ===== */
+    .unlock {
+      position: fixed;
+      inset: 0;
+      background: rgba(11,18,32,0.92);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .unlock button {
+      font-size: 22px;
+      font-weight: 800;
+      padding: 20px 44px;
+      border-radius: 16px;
+      background: var(--accent);
+      color: #0b1220;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .unlock p { color: var(--text-3); font-size: 14px; margin: 0; }
+  </style>
+</head>
+<body>
+
+  <div class="unlock" id="unlock">
+    <button id="unlock-btn" type="button">▶ 대기 화면 시작</button>
+    <p>음성 안내 재생을 위해 한 번 눌러주세요 · Tap once to enable voice announcements</p>
+  </div>
+
+  <div class="topbar">
+    <img src="/static/kor.png" alt="대한민국">
+    <div>
+      <div class="ko">주토론토 대한민국 총영사관</div>
+      <div class="en">Consulate General of the Republic of Korea in Toronto</div>
+    </div>
+    <div class="clock">
+      <div class="time" id="clock-time">--:--</div>
+      <div class="date" id="clock-date"></div>
+    </div>
+  </div>
+
+  <div class="call-banner" id="call-banner">
+    <span class="icon">📢</span>
+    <div>
+      <div class="label">호출 / Now Calling</div>
+      <div class="name" id="call-name">—</div>
+    </div>
+    <div class="counter" id="call-counter">—</div>
+  </div>
+
+  <div class="cols">
+    <div class="panel waiting">
+      <h2>⏳ 대기 중 <span class="en">Waiting</span><span class="cnt" id="cnt-waiting">0</span></h2>
+      <div class="list" id="list-waiting"><div class="empty">대기 중인 민원인이 없습니다</div></div>
+    </div>
+    <div class="panel active">
+      <h2>▶ 처리 중 <span class="en">In Service</span><span class="cnt" id="cnt-active">0</span></h2>
+      <div class="list" id="list-active"><div class="empty">—</div></div>
+    </div>
+    <div class="panel recent">
+      <h2>🔔 최근 호출 <span class="en">Recently Called</span><span class="cnt" id="cnt-recent">0</span></h2>
+      <div class="list" id="list-recent"><div class="empty">—</div></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // ---- Clock ----
+      function tick() {
+        const now = new Date();
+        document.getElementById('clock-time').textContent =
+          now.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Toronto' });
+        document.getElementById('clock-date').textContent =
+          now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', timeZone: 'America/Toronto' });
+      }
+      tick();
+      setInterval(tick, 10000);
+
+      // ---- Audio unlock (browser autoplay policy) ----
+      let audioUnlocked = false;
+      const unlockEl = document.getElementById('unlock');
+      document.getElementById('unlock-btn').addEventListener('click', function () {
+        audioUnlocked = true;
+        unlockEl.style.display = 'none';
+        // Prime the audio element with a user gesture
+        try { announcer.play().catch(function () {}); announcer.pause(); } catch (e) {}
+      });
+
+      const announcer = new Audio();
+
+      function playTwice(url) {
+        if (!audioUnlocked || !url) return;
+        let plays = 0;
+        announcer.src = url;
+        announcer.onended = function () {
+          plays += 1;
+          if (plays < 2) {
+            setTimeout(function () { announcer.play().catch(function () {}); }, 1200);
+          }
+        };
+        announcer.play().catch(function () {});
+      }
+
+      function speakTwiceFallback(text, lang) {
+        if (!audioUnlocked || !('speechSynthesis' in window)) return;
+        const u1 = new SpeechSynthesisUtterance(text);
+        u1.lang = lang === 'ko' ? 'ko-KR' : 'en-US';
+        const u2 = new SpeechSynthesisUtterance(text);
+        u2.lang = u1.lang;
+        speechSynthesis.speak(u1);
+        speechSynthesis.speak(u2);
+      }
+
+      // ---- Render helpers ----
+      function renderRows(elId, items, cntId) {
+        const el = document.getElementById(elId);
+        document.getElementById(cntId).textContent = items.length;
+        if (!items.length) {
+          el.innerHTML = '<div class="empty">—</div>';
+          return;
+        }
+        el.innerHTML = items.map(function (it) {
+          return '<div class="row">' +
+            (it.time ? '<span class="time">' + it.time + '</span>' : '') +
+            '<span class="name">' + it.name + '</span>' +
+            '<span class="counter">' + it.counter + '번</span>' +
+          '</div>';
+        }).join('');
+      }
+
+      // ---- Poll ----
+      let lastCallId = null;
+      const banner = document.getElementById('call-banner');
+      let bannerTimer = null;
+
+      async function poll() {
+        try {
+          const r = await fetch('/api/tv', { credentials: 'same-origin' });
+          if (r.status === 401) { window.location.href = '/login'; return; }
+          if (!r.ok) return;
+          const d = await r.json();
+
+          renderRows('list-waiting', d.waiting, 'cnt-waiting');
+          renderRows('list-active', d.active, 'cnt-active');
+          renderRows('list-recent',
+            (d.call.recent || []).map(function (c) {
+              return { time: '', name: c.name, counter: c.counter };
+            }),
+            'cnt-recent');
+
+          const cur = d.call.current;
+          if (cur) {
+            document.getElementById('call-name').textContent = cur.name;
+            document.getElementById('call-counter').textContent = cur.counter + '번 창구';
+            banner.classList.add('show');
+            clearTimeout(bannerTimer);
+            if (cur.id !== lastCallId) {
+              lastCallId = cur.id;
+              if (cur.audio_url) playTwice(cur.audio_url);
+              else speakTwiceFallback(cur.text, cur.lang);
+            }
+          } else {
+            // keep banner a moment after call slot ends, then hide
+            clearTimeout(bannerTimer);
+            bannerTimer = setTimeout(function () { banner.classList.remove('show'); }, 3000);
+          }
+        } catch (e) { /* next poll recovers */ }
+      }
+      poll();
+      setInterval(poll, 2500);
+    })();
+  </script>
+</body>
+</html>

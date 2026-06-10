@@ -646,6 +646,131 @@
       font-size: 16px;
     }
 
+    /* ---- Voice call button (admin only) ---- */
+    .call-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1;
+      padding: 3px 7px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .call-btn:hover { background: var(--surface-2); border-color: var(--accent); }
+
+    /* ---- Call modal ---- */
+    .call-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .call-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 24px;
+      width: 100%;
+      max-width: 340px;
+      box-shadow: var(--shadow-md);
+    }
+    .call-modal .cm-name {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 2px;
+      letter-spacing: -0.02em;
+    }
+    .call-modal .cm-sub {
+      font-size: 12px;
+      color: var(--text-3);
+      margin-bottom: 16px;
+    }
+    .call-modal .cm-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .cm-counters {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+    .cm-counters button {
+      flex: 1;
+      padding: 12px 0;
+      font-size: 16px;
+      font-weight: 800;
+      background: var(--surface-2);
+      color: var(--text-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-variant-numeric: tabular-nums;
+      transition: background 0.1s, color 0.1s, border-color 0.1s;
+    }
+    .cm-counters button.sel {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .cm-actions { display: flex; gap: 8px; }
+    .cm-actions button {
+      flex: 1;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      border: 1px solid var(--border);
+    }
+    .cm-cancel { background: var(--surface-2); color: var(--text-2); }
+    .cm-call { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .cm-call:active, .cm-cancel:active { transform: scale(0.98); }
+
+    /* ---- Call toast ---- */
+    .call-toast {
+      position: fixed;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--passcode-bg);
+      color: #fff;
+      padding: 14px 24px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      box-shadow: var(--shadow-md);
+      z-index: 70;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      max-width: 90vw;
+      letter-spacing: -0.01em;
+    }
+    .call-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .call-toast .counter-chip {
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.25);
+      padding: 3px 12px;
+      border-radius: 99px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
     /* ---- Mobile counter nav (only in grouped view) ---- */
     .counter-nav { display: none; }
     html { scroll-behavior: smooth; }
@@ -812,9 +937,10 @@
                   {% for cell in row.cells %}
                     {% if cell %}
                       <td class="col-{{ loop.index }}">
-                        <div class="card col-{{ loop.index }} {% if cell.attendance %}state-{{ cell.attendance }}{% endif %}" data-id="{{ cell.id }}" data-start-iso="{{ cell.start_iso }}">
+                        <div class="card col-{{ loop.index }} {% if cell.attendance %}state-{{ cell.attendance }}{% endif %}" data-id="{{ cell.id }}" data-start-iso="{{ cell.start_iso }}" data-counter="{{ loop.index }}" data-name="{{ cell.name_ko or cell.name_en }}">
                           <div class="top-row">
                             <span class="duration">{{ cell.time_range }}</span>
+                            {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
                             <span class="state-badge">{% if cell.attendance == 'waiting' %}⏳{% elif cell.attendance == 'active' %}▶{% elif cell.attendance == 'done' %}✓{% elif cell.attendance == 'noshow' %}✗{% endif %}</span>
                             <span class="auto-badge"></span>
                           </div>
@@ -861,9 +987,10 @@
             {% if split.am %}
               <div class="period-label" id="counter-{{ col_idx }}-am">AM</div>
               {% for a in split.am %}
-                <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}" data-start-iso="{{ a.start_iso }}">
+                <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}" data-start-iso="{{ a.start_iso }}" data-counter="{{ col_idx }}" data-name="{{ a.name_ko or a.name_en }}">
                   <div class="top-row">
                     <span class="duration">{{ a.time_range }}</span>
+                    {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
                     <span class="state-badge">{% if a.attendance == 'waiting' %}⏳{% elif a.attendance == 'active' %}▶{% elif a.attendance == 'done' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
                     <span class="auto-badge"></span>
                   </div>
@@ -886,9 +1013,10 @@
             {% if split.pm %}
               <div class="period-label" id="counter-{{ col_idx }}-pm">PM</div>
               {% for a in split.pm %}
-                <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}" data-start-iso="{{ a.start_iso }}">
+                <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}" data-start-iso="{{ a.start_iso }}" data-counter="{{ col_idx }}" data-name="{{ a.name_ko or a.name_en }}">
                   <div class="top-row">
                     <span class="duration">{{ a.time_range }}</span>
+                    {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
                     <span class="state-badge">{% if a.attendance == 'waiting' %}⏳{% elif a.attendance == 'active' %}▶{% elif a.attendance == 'done' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
                     <span class="auto-badge"></span>
                   </div>
@@ -912,6 +1040,29 @@
       <span style="font-size:13px">No reservations</span>
     </div>
   {% endif %}
+
+  {% if is_admin %}
+  <div class="call-modal-backdrop" id="call-modal" hidden>
+    <div class="call-modal">
+      <div class="cm-name" id="cm-name"></div>
+      <div class="cm-sub">호출할 창구를 선택하세요 · 기본값은 예약된 창구</div>
+      <div class="cm-label">창구 / Counter</div>
+      <div class="cm-counters" id="cm-counters">
+        <button type="button" data-counter="1">1</button>
+        <button type="button" data-counter="2">2</button>
+        <button type="button" data-counter="3">3</button>
+        <button type="button" data-counter="4">4</button>
+        <button type="button" data-counter="5">5</button>
+      </div>
+      <div class="cm-actions">
+        <button type="button" class="cm-cancel" id="cm-cancel">취소</button>
+        <button type="button" class="cm-call" id="cm-call">📢 호출</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="call-toast" id="call-toast"></div>
 
   <footer>
     <div class="copy">© 2026 주토론토총영사관 예약 대시보드</div>
@@ -1032,6 +1183,94 @@
       syncAutoStates();
       setInterval(syncAutoStates, 60000);
       window.syncAutoStates = syncAutoStates;  // expose for manual verification
+
+      // ---- Call toast (all roles see announcements) ----
+      const toastEl = document.getElementById('call-toast');
+      let toastTimer = null;
+      function showCallToast(name, counter) {
+        if (!toastEl) return;
+        toastEl.innerHTML = '📢 <strong>' + name + '</strong> 민원인님 <span class="counter-chip">' + counter + '번 창구</span>';
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 12000);
+      }
+      let lastCallId = null;
+      async function pollCallState() {
+        try {
+          const r = await fetch('/api/call/state', { credentials: 'same-origin' });
+          if (!r.ok) return;
+          const s = await r.json();
+          if (s.current && s.current.id !== lastCallId) {
+            lastCallId = s.current.id;
+            showCallToast(s.current.name, s.current.counter);
+          }
+        } catch (e) { /* next poll recovers */ }
+      }
+      pollCallState();
+      setInterval(pollCallState, 3000);
+
+      // ---- Call modal (admin only; elements absent otherwise) ----
+      const modal = document.getElementById('call-modal');
+      if (modal) {
+        const cmName = document.getElementById('cm-name');
+        const cmCounters = document.getElementById('cm-counters');
+        let callApptId = null;
+        let chosenCounter = null;
+
+        function selectCounter(n) {
+          chosenCounter = n;
+          cmCounters.querySelectorAll('button').forEach(function (b) {
+            b.classList.toggle('sel', parseInt(b.dataset.counter, 10) === n);
+          });
+        }
+        cmCounters.querySelectorAll('button').forEach(function (b) {
+          b.addEventListener('click', function () {
+            selectCounter(parseInt(b.dataset.counter, 10));
+          });
+        });
+
+        function openCallModal(card) {
+          callApptId = card.dataset.id;
+          cmName.textContent = card.dataset.name || '—';
+          let def = parseInt(card.dataset.counter, 10);
+          if (!(def >= 1 && def <= 5)) def = 1;
+          selectCounter(def);
+          modal.hidden = false;
+        }
+        function closeModal() { modal.hidden = true; callApptId = null; }
+
+        document.getElementById('cm-cancel').addEventListener('click', closeModal);
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) closeModal();
+        });
+        document.getElementById('cm-call').addEventListener('click', async function () {
+          if (!callApptId || !chosenCounter) return;
+          try {
+            const r = await fetch('/api/call', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ appt_id: callApptId, counter: chosenCounter })
+            });
+            if (r.status === 401) { window.location.href = '/login'; return; }
+            if (r.status === 429) {
+              const d = await r.json();
+              alert(d.detail || '잠시 후 다시 호출해주세요.');
+            } else if (!r.ok) {
+              alert('호출 실패 (' + r.status + ')');
+            }
+          } catch (e) {
+            alert('호출 실패: 네트워크 오류');
+          }
+          closeModal();
+        });
+
+        document.querySelectorAll('.call-btn').forEach(function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openCallModal(btn.closest('.card'));
+          });
+        });
+      }
 
       // ---- Live attendance sync (10s polling) ----
       // Pulls latest states from server and applies any deltas without a full

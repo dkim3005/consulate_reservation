@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from app import auth, store, vcita
+from app import auth, calls, store, vcita
 from app.config import (
     ADMIN_PASSWORD,
     COOKIE_SECURE,
@@ -260,6 +260,7 @@ async def _warm_loop() -> None:
 @app.on_event("startup")
 async def _startup() -> None:
     asyncio.create_task(_warm_loop())
+    calls.start_worker()
 
 
 # ---------- Auth routes ----------
@@ -326,6 +327,79 @@ async def report_print_page() -> FileResponse:
 @app.get("/manual", response_class=FileResponse)
 async def manual_page() -> FileResponse:
     return FileResponse(BASE_DIR / "static" / "manual.html")
+
+
+# ---------- Voice call (admin only) ----------
+
+class CallRequest(BaseModel):
+    appt_id: str
+    counter: int
+
+
+async def _find_appt_name(appt_id: str) -> str | None:
+    tz = ZoneInfo(LOCAL_TZ)
+    target = _target_date(datetime.now(tz))
+    appts = vcita.peek_cache(target)
+    if not appts:
+        appts = await fetch_appointments_for_date(target)
+    for a in appts:
+        if a.get("id") == appt_id:
+            first = (a.get("client_first_name") or "").strip()
+            last = (a.get("client_last_name") or "").strip()
+            return f"{first} {last}".strip()
+    return None
+
+
+@app.post("/api/call")
+async def make_call(req: CallRequest, role: str = Depends(require_session_api)) -> JSONResponse:
+    if role != auth.ROLE_ADMIN:
+        raise HTTPException(status_code=403, detail="call permission is staff-only")
+    name = await _find_appt_name(req.appt_id)
+    if not name:
+        raise HTTPException(status_code=404, detail="appointment not found")
+    ok, err = await calls.enqueue(req.appt_id, name, req.counter)
+    if not ok:
+        raise HTTPException(status_code=429, detail=err)
+    return JSONResponse({"ok": True, "queued": calls.get_state()["queue_size"]})
+
+
+@app.get("/api/call/state")
+async def call_state(role: str = Depends(require_session_api)) -> JSONResponse:
+    return JSONResponse(calls.get_state())
+
+
+# ---------- TV waiting board ----------
+
+@app.get("/api/tv")
+async def api_tv(role: str = Depends(require_session_api)) -> JSONResponse:
+    payload = await _build_payload(role)
+    waiting: list[dict] = []
+    active: list[dict] = []
+    for idx, col in enumerate(payload["columns"], 1):
+        for a in payload["grouped"].get(col, []):
+            entry = {
+                "name": calls.mask_name(a["name_ko"] or a["name_en"]),
+                "counter": idx,
+                "time": a["time"],
+            }
+            if a["attendance"] == "waiting":
+                waiting.append(entry)
+            elif a["attendance"] == "active":
+                active.append(entry)
+    waiting.sort(key=lambda e: e["time"])
+    active.sort(key=lambda e: e["time"])
+    return JSONResponse({
+        "date_label": payload["date_label"],
+        "updated_at": payload["updated_at"],
+        "waiting": waiting,
+        "active": active,
+        "call": calls.get_state(masked=True),
+    })
+
+
+@app.get("/tv", response_class=HTMLResponse)
+async def tv_board(request: Request, role: str = Depends(require_session)) -> HTMLResponse:
+    return templates.TemplateResponse("tv.html", {"request": request})
 
 
 # ---------- Dashboard routes ----------
