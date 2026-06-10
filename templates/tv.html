@@ -246,10 +246,10 @@
     .panel .list {
       flex: 1;
       overflow-y: auto;
-      padding: 12px 16px;
+      padding: 14px 16px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 14px;
     }
     .row {
       display: flex;
@@ -420,25 +420,32 @@
 
       const announcer = new Audio();
 
-      function playTwice(url) {
-        if (!audioUnlocked || !url) return;
+      // done() fires when the announcement (2 plays) actually finishes,
+      // so the overlay can hold for the full audio + a tail.
+      function playTwice(url, done) {
+        if (!audioUnlocked || !url) { if (done) done(); return; }
         let plays = 0;
         announcer.src = url;
         announcer.onended = function () {
           plays += 1;
           if (plays < 2) {
-            setTimeout(function () { announcer.play().catch(function () {}); }, 1200);
+            setTimeout(function () {
+              announcer.play().catch(function () { if (done) done(); });
+            }, 1200);
+          } else {
+            if (done) done();
           }
         };
-        announcer.play().catch(function () {});
+        announcer.play().catch(function () { if (done) done(); });
       }
 
-      function speakTwiceFallback(text, lang) {
-        if (!audioUnlocked || !('speechSynthesis' in window)) return;
+      function speakTwiceFallback(text, lang, done) {
+        if (!audioUnlocked || !('speechSynthesis' in window)) { if (done) done(); return; }
         const u1 = new SpeechSynthesisUtterance(text);
         u1.lang = lang === 'ko' ? 'ko-KR' : 'en-US';
         const u2 = new SpeechSynthesisUtterance(text);
         u2.lang = u1.lang;
+        if (done) u2.onend = function () { done(); };
         speechSynthesis.speak(u1);
         speechSynthesis.speak(u2);
       }
@@ -490,9 +497,15 @@
             document.getElementById('call-counter').textContent = cur.counter + '번 창구';
             overlay.classList.add('show');
             clearTimeout(overlayTimer);
-            overlayTimer = setTimeout(function () { overlay.classList.remove('show'); }, 10000);
-            if (cur.audio_url) playTwice(cur.audio_url);
-            else speakTwiceFallback(cur.text, cur.lang);
+            // Overlay stays for the full announcement (2 plays) + 3s tail.
+            // Safety timer force-hides in case audio events never fire.
+            overlayTimer = setTimeout(function () { overlay.classList.remove('show'); }, 30000);
+            const hideAfterTail = function () {
+              clearTimeout(overlayTimer);
+              overlayTimer = setTimeout(function () { overlay.classList.remove('show'); }, 3000);
+            };
+            if (cur.audio_url) playTwice(cur.audio_url, hideAfterTail);
+            else speakTwiceFallback(cur.text, cur.lang, hideAfterTail);
           }
         } catch (e) { /* next poll recovers */ }
       }
