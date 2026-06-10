@@ -15,7 +15,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fastapi import Cookie, Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -309,6 +309,18 @@ async def logout() -> RedirectResponse:
     resp = RedirectResponse(url="/login", status_code=303)
     resp.delete_cookie(auth.COOKIE_NAME, path="/")
     return resp
+
+
+# ---------- Public report (no auth) ----------
+
+@app.get("/report", response_class=FileResponse)
+async def report_page() -> FileResponse:
+    return FileResponse(BASE_DIR / "static" / "report.html")
+
+
+@app.get("/report-print", response_class=FileResponse)
+async def report_print_page() -> FileResponse:
+    return FileResponse(BASE_DIR / "static" / "report_print.html")
 
 
 # ---------- Dashboard routes ----------

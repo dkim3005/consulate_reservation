@@ -955,7 +955,8 @@
           } else if (past > 0) {
             card.classList.add('auto-late');
             card.classList.remove('auto-noshow');
-            if (badge) badge.textContent = '⏰ ' + Math.floor(past / 60000) + 'm late';
+            const mins = Math.floor(past / 60000);
+            if (badge) badge.textContent = mins >= 1 ? ('⏰ ' + mins + 'm late') : '⏰ Late';
           } else {
             card.classList.remove('auto-late', 'auto-noshow');
             if (badge) badge.textContent = '';
@@ -964,6 +965,7 @@
       }
       syncAutoStates();
       setInterval(syncAutoStates, 60000);
+      window.syncAutoStates = syncAutoStates;  // expose for manual verification
 
       // ---- Live attendance sync (10s polling) ----
       // Pulls latest states from server and applies any deltas without a full
