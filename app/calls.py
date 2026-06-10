@@ -156,12 +156,17 @@ def _save_name_cache(cache: dict) -> None:
 
 
 CLASSIFY_PROMPT = (
-    "You are given a person's name written in Latin letters. "
-    "If it is a Korean person's name (romanized Korean), convert it to Hangul "
-    "and reply with ONLY the Hangul name, family name first, no explanation. "
-    "If it is NOT a Korean name (e.g. Chinese, Vietnamese, Japanese, Western, "
-    "Indian, or any other origin), reply with exactly NOT_KOREAN. "
-    "Be strict: names like 'Jin Zhu', 'Xin Li', 'Bing Yan' are Chinese → NOT_KOREAN."
+    "You are given a person's name written in Latin letters. Decide whether it is a "
+    "KOREAN person's name (romanized Korean). Only if it is clearly Korean, convert it "
+    "to Hangul and reply with ONLY the Hangul name, family name first, no explanation. "
+    "Otherwise reply with exactly NOT_KOREAN.\n"
+    "Rules:\n"
+    "- Chinese, Vietnamese, Japanese, Western, Indian or other-origin names → NOT_KOREAN. "
+    "Examples: 'Jin Zhu' → NOT_KOREAN, 'Xin Li' → NOT_KOREAN, 'Nguyen Thao' → NOT_KOREAN, "
+    "'David Smith' → NOT_KOREAN.\n"
+    "- A standalone Western given name → NOT_KOREAN, even though it could be transliterated. "
+    "Examples: 'Joseph' → NOT_KOREAN, 'Daniel' → NOT_KOREAN, 'Sarah' → NOT_KOREAN.\n"
+    "- Korean examples: 'Eunsil Kim' → 김은실, 'Kibum Jung' → 정기범, 'Da Jeong Kim' → 김다정."
 )
 FORCE_CONVERT_PROMPT = (
     "You convert romanized Korean person names to Hangul. "
@@ -169,17 +174,33 @@ FORCE_CONVERT_PROMPT = (
     "Reply with ONLY the Hangul name, family name first, no explanation."
 )
 
+# Bump when classification logic/prompt changes — invalidates old cached verdicts
+NAME_CACHE_VERSION = "v2"
 
-async def _deepseek(system_prompt: str, user_content: str) -> str | None:
-    """One DeepSeek chat call with a single retry. Returns content or None."""
+
+def _llm_endpoint() -> tuple[str, str, str] | None:
+    """Returns (url, api_key, model). OpenAI primary, DeepSeek fallback."""
+    if OPENAI_API_KEY:
+        return "https://api.openai.com/v1/chat/completions", OPENAI_API_KEY, "gpt-4o-mini"
+    if DEEPSEEK_API_KEY:
+        return "https://api.deepseek.com/chat/completions", DEEPSEEK_API_KEY, "deepseek-chat"
+    return None
+
+
+async def _llm(system_prompt: str, user_content: str) -> str | None:
+    """One LLM chat call with a single retry. Returns content or None."""
+    endpoint = _llm_endpoint()
+    if endpoint is None:
+        return None
+    url, api_key, model = endpoint
     for attempt in range(2):
         try:
             async with httpx.AsyncClient() as client:
                 r = await client.post(
-                    "https://api.deepseek.com/chat/completions",
-                    headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+                    url,
+                    headers={"Authorization": f"Bearer {api_key}"},
                     json={
-                        "model": "deepseek-chat",
+                        "model": model,
                         "messages": [
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_content},
@@ -191,7 +212,7 @@ async def _deepseek(system_prompt: str, user_content: str) -> str | None:
                 )
             return r.json()["choices"][0]["message"]["content"].strip()
         except Exception as e:  # noqa: BLE001
-            log.warning("deepseek call failed (attempt %d) for %r: %s", attempt + 1, user_content, e)
+            log.warning("llm call failed (attempt %d) for %r: %s", attempt + 1, user_content, e)
             if attempt == 0:
                 await asyncio.sleep(0.8)
     return None
@@ -204,9 +225,9 @@ async def _romanized_to_hangul(name: str, force: bool = False) -> str | None:
     conversion — used as a backstop when the surname is unambiguously Korean
     but classification said NOT_KOREAN (or a previous bad result got cached).
     """
-    if not DEEPSEEK_API_KEY:
+    if _llm_endpoint() is None:
         return None
-    key = name.strip().lower()
+    key = f"{NAME_CACHE_VERSION}:{name.strip().lower()}"
     if not force:
         with _name_cache_lock:
             cache = _load_name_cache()
@@ -214,7 +235,7 @@ async def _romanized_to_hangul(name: str, force: bool = False) -> str | None:
                 return cache[key] or None
 
     prompt = FORCE_CONVERT_PROMPT if force else CLASSIFY_PROMPT
-    out = await _deepseek(prompt, name.strip())
+    out = await _llm(prompt, name.strip())
     if out is None:
         return None  # transient failure — never cached
     result = out if (_has_hangul(out) and len(out) <= 10) else ""
@@ -298,7 +319,7 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
     if _has_hangul(name):
         return "ko", name, f"{name} 민원인님, {counter}번 창구로 오세요."
 
-    if DEEPSEEK_API_KEY:
+    if _llm_endpoint() is not None:
         hangul = await _romanized_to_hangul(name)
         # Backstop: unambiguous Korean surname (Kim/Jung/Park/...) but the
         # classifier said no (or its call failed) → force a conversion. This
@@ -388,4 +409,7 @@ async def _worker() -> None:
 
 
 def start_worker() -> None:
+    tts = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}" if OPENAI_API_KEY else "edge-tts (fallback)"
+    llm = (_llm_endpoint() or ("", "", "none"))[2]
+    log.warning("call worker started — tts=%s, name-classifier=%s", tts, llm)
     asyncio.create_task(_worker())

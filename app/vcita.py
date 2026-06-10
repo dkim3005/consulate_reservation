@@ -2,13 +2,15 @@
 
 Strictly GET requests. No write methods are exposed.
 
-Performance notes:
-  * vcita caps page size at 25 regardless of per_page param.
-  * sort=start_at:ASC + state=scheduled puts the soonest future booking on page 1,
-    so we can stop pagination as soon as we cross day_end.
-  * Page 1 is fetched first; if more pages are needed, the next batch is fetched
-    in parallel before falling back to sequential continuation.
-  * Results are cached in-process for CACHE_TTL_SECONDS to absorb concurrent loads.
+State model (observed, not documented): future/active appointments are
+"scheduled"; once an appointment's time passes vcita flips it to "completed".
+Cancelled ones become "cancelled" (excluded — they should not show).
+
+Fetch strategy — two concurrent walks that each terminate within a few pages:
+  * scheduled  + ASC : soonest upcoming first → today's remaining + future.
+  * completed  + DESC: most recent completed first → today's past items.
+vcita caps page size at 25 regardless of per_page, so early termination
+matters. Results are merged, deduped, cached for CACHE_TTL_SECONDS.
 """
 from __future__ import annotations
 
@@ -25,7 +27,7 @@ APPOINTMENTS_PATH = "/platform/v1/scheduling/appointments"
 COUNTERS = ["1번창구", "2번창구", "3번창구", "4번창구", "5번창구"]
 
 CACHE_TTL_SECONDS = 60.0
-INITIAL_PARALLEL_PAGES = 10  # fire first N pages concurrently to cut latency
+INITIAL_PARALLEL_PAGES = 6  # pages fetched concurrently per walk
 
 _cache: dict[str, tuple[float, list[dict]]] = {}
 
@@ -37,15 +39,13 @@ def _headers() -> dict[str, str]:
     }
 
 
-async def _fetch_page(client: httpx.AsyncClient, page: int) -> dict:
+async def _fetch_page(client: httpx.AsyncClient, page: int, state: str, sort: str) -> dict:
     resp = await client.get(
         f"{VCITA_BASE_URL}{APPOINTMENTS_PATH}",
         headers=_headers(),
         params={
-            # include "done" so appointments stay visible after vcita marks
-            # them completed when their time passes
-            "state": "scheduled,done",
-            "sort": "start_at:ASC",
+            "state": state,
+            "sort": sort,
             "per_page": 100,
             "page": page,
         },
@@ -55,22 +55,67 @@ async def _fetch_page(client: httpx.AsyncClient, page: int) -> dict:
     return resp.json()
 
 
-def _collect(payload: dict, tz: ZoneInfo, day_start: datetime, day_end: datetime,
-             collected: list[dict]) -> tuple[bool, int | None]:
-    """Append in-range items; return (saw_past_end, next_page)."""
-    appts = payload.get("data", {}).get("appointments", [])
-    saw_past_end = False
-    for a in appts:
-        dt = datetime.fromisoformat(a["start_time"].replace("Z", "+00:00")).astimezone(tz)
-        if day_start <= dt < day_end:
-            collected.append(a)
-        elif dt >= day_end:
-            saw_past_end = True
-    return saw_past_end, payload.get("data", {}).get("next_page")
+def _start_local(a: dict, tz: ZoneInfo) -> datetime:
+    return datetime.fromisoformat(a["start_time"].replace("Z", "+00:00")).astimezone(tz)
+
+
+async def _walk(
+    client: httpx.AsyncClient,
+    state: str,
+    sort: str,
+    tz: ZoneInfo,
+    day_start: datetime,
+    day_end: datetime,
+) -> list[dict]:
+    """Paginate one (state, sort) stream, collecting items inside the day window.
+
+    Stops as soon as the stream moves past the window (ascending → beyond
+    day_end; descending → before day_start).
+    """
+    ascending = sort.endswith("ASC")
+    collected: list[dict] = []
+
+    def consume(payload: dict) -> tuple[bool, int | None, bool]:
+        """Returns (stop, next_page, empty)."""
+        appts = payload.get("data", {}).get("appointments", [])
+        if not appts:
+            return True, None, True
+        stop = False
+        for a in appts:
+            dt = _start_local(a, tz)
+            if day_start <= dt < day_end:
+                collected.append(a)
+            elif ascending and dt >= day_end:
+                stop = True
+            elif not ascending and dt < day_start:
+                stop = True
+        return stop, payload.get("data", {}).get("next_page"), False
+
+    payloads = await asyncio.gather(
+        *[_fetch_page(client, p, state, sort) for p in range(1, INITIAL_PARALLEL_PAGES + 1)]
+    )
+    stop = False
+    next_page: int | None = None
+    for payload in payloads:
+        s, next_page, empty = consume(payload)
+        if s:
+            stop = True
+        if empty:
+            next_page = None
+            break
+
+    page = next_page
+    while not stop and page:
+        payload = await _fetch_page(client, page, state, sort)
+        stop, page, empty = consume(payload)
+        if empty:
+            break
+
+    return collected
 
 
 async def fetch_appointments_for_date(target: date) -> list[dict]:
-    """Return scheduled appointments for the given local date, sorted ascending."""
+    """Return scheduled + completed appointments for the local date, sorted ascending."""
     key = target.isoformat()
     now = time.time()
     hit = _cache.get(key)
@@ -81,31 +126,19 @@ async def fetch_appointments_for_date(target: date) -> list[dict]:
     day_start = datetime(target.year, target.month, target.day, tzinfo=tz)
     day_end = day_start + timedelta(days=1)
 
-    collected: list[dict] = []
     async with httpx.AsyncClient() as client:
-        # Fire the first batch of pages concurrently. For this consulate's volume
-        # (~80/day = ~4 pages at 25/page), 10 pages covers any normal day.
-        results = await asyncio.gather(
-            *[_fetch_page(client, p) for p in range(1, INITIAL_PARALLEL_PAGES + 1)]
+        upcoming, past = await asyncio.gather(
+            _walk(client, "scheduled", "start_at:ASC", tz, day_start, day_end),
+            _walk(client, "completed", "start_at:DESC", tz, day_start, day_end),
         )
-        saw_past_end = False
-        last_next: int | None = None
-        for payload in results:
-            ended, last_next = _collect(payload, tz, day_start, day_end, collected)
-            if ended:
-                saw_past_end = True
-            if not payload.get("data", {}).get("appointments"):
-                # empty page — no need to chase further
-                last_next = None
-                saw_past_end = True
 
-        # Sequential continuation if we still haven't crossed day_end and pages remain
-        page = last_next
-        while not saw_past_end and page:
-            payload = await _fetch_page(client, page)
-            if not payload.get("data", {}).get("appointments"):
-                break
-            saw_past_end, page = _collect(payload, tz, day_start, day_end, collected)
+    seen: set[str] = set()
+    collected: list[dict] = []
+    for a in upcoming + past:
+        aid = a.get("id")
+        if aid not in seen:
+            seen.add(aid)
+            collected.append(a)
 
     collected.sort(key=lambda a: a["start_time"])
     _cache[key] = (time.time(), collected)
