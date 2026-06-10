@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>대기 현황 · 주토론토총영사관</title>
   <link rel="icon" type="image/png" href="/static/kor.png">
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem('consulate-theme') === 'light')
+          document.documentElement.setAttribute('data-theme', 'light');
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <style>
     :root {
@@ -19,6 +27,25 @@
       --waiting: #fbbf24;
       --active: #60a5fa;
       --call: #34d399;
+      --row-bg: #0b1220;
+      --ticker-strong: #fdba74;
+      --logo-bg: #ffffff;
+    }
+    :root[data-theme="light"] {
+      --bg: #f4f5f7;
+      --surface: #ffffff;
+      --surface-2: #eef0f3;
+      --border: #d7dbe2;
+      --text: #111827;
+      --text-2: #374151;
+      --text-3: #6b7280;
+      --accent: #2563eb;
+      --waiting: #b45309;
+      --active: #1d4ed8;
+      --call: #047857;
+      --row-bg: #f8fafc;
+      --ticker-strong: #c2410c;
+      --logo-bg: transparent;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; }
@@ -43,7 +70,13 @@
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
-    .topbar img { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 6px; padding: 3px; }
+    .topbar img {
+      width: 56px; height: 56px; object-fit: contain;
+      background: var(--logo-bg); border-radius: 6px; padding: 3px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .topbar img:active { transform: scale(0.95); }
     .topbar .ko { font-size: 26px; font-weight: 700; }
     .topbar .en { font-size: 14px; color: var(--text-3); margin-top: 2px; }
     .topbar .clock {
@@ -139,7 +172,7 @@
       padding-right: 120px;
       font-weight: 500;
     }
-    .ticker-track strong { color: #fdba74; font-weight: 700; }
+    .ticker-track strong { color: var(--ticker-strong); font-weight: 700; }
     @keyframes ticker-scroll {
       from { transform: translateX(0); }
       to   { transform: translateX(-50%); }
@@ -189,7 +222,7 @@
       display: flex;
       align-items: center;
       gap: 18px;
-      background: var(--bg);
+      background: var(--row-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px 20px;
@@ -251,7 +284,7 @@
   </div>
 
   <div class="topbar">
-    <img src="/static/kor.png" alt="대한민국">
+    <img src="/static/kor.png" alt="대한민국" id="logo-toggle" title="화면 모드 전환">
     <div>
       <div class="ko">주토론토 대한민국 총영사관</div>
       <div class="en">Consulate General of the Republic of Korea in Toronto</div>
@@ -318,6 +351,18 @@
 
   <script>
     (function () {
+      // ---- Theme toggle via logo click ----
+      document.getElementById('logo-toggle').addEventListener('click', function () {
+        const root = document.documentElement;
+        if (root.getAttribute('data-theme') === 'light') {
+          root.removeAttribute('data-theme');
+          try { localStorage.setItem('consulate-theme', 'dark'); } catch (e) {}
+        } else {
+          root.setAttribute('data-theme', 'light');
+          try { localStorage.setItem('consulate-theme', 'light'); } catch (e) {}
+        }
+      });
+
       // ---- Clock ----
       function tick() {
         const now = new Date();
