@@ -29,8 +29,10 @@
       --accent: #60a5fa;
       --waiting: #fbbf24;
       --waiting-soft: rgba(251,191,36,0.16);
+      --waiting-vivid: rgba(251,191,36,0.30);
       --active: #60a5fa;
       --active-soft: rgba(96,165,250,0.16);
+      --active-vivid: rgba(96,165,250,0.32);
       --done: #34d399;
       --done-soft: rgba(52,211,153,0.14);
       --noshow: #f87171;
@@ -63,8 +65,10 @@
       --accent: #2563eb;
       --waiting: #d97706;
       --waiting-soft: #fffbeb;
+      --waiting-vivid: #fde68a;
       --active: #2563eb;
       --active-soft: #eff6ff;
+      --active-vivid: #bfdbfe;
       --done: #059669;
       --done-soft: #ecfdf5;
       --noshow: #dc2626;
@@ -398,9 +402,16 @@
       border-radius: 10px;
       letter-spacing: 0.02em;
     }
-    .card.state-waiting             { background: var(--waiting-soft); }
+    /* Waiting/Active are the states that matter most — make them pop */
+    .card.state-waiting {
+      background: var(--waiting-vivid) !important;
+      outline: 2px solid var(--waiting) !important;
+    }
     .card.state-waiting .state-badge{ display: inline-flex; background: var(--waiting); }
-    .card.state-active              { background: var(--active-soft); }
+    .card.state-active {
+      background: var(--active-vivid) !important;
+      outline: 2px solid var(--active) !important;
+    }
     .card.state-active  .state-badge{ display: inline-flex; background: var(--active); }
     .card.state-done                { background: var(--done-soft); opacity: 0.6; }
     .card.state-done    .state-badge{ display: inline-flex; background: var(--done); }
