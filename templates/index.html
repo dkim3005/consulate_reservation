@@ -659,6 +659,13 @@
       transition: background 0.12s, border-color 0.12s;
     }
     .call-btn:hover { background: var(--surface-2); border-color: var(--accent); }
+    .call-btn.called {
+      background: var(--done-soft);
+      border-color: var(--done);
+      color: var(--done);
+      pointer-events: none;
+      font-weight: 700;
+    }
 
     /* ---- Call modal ---- */
     .call-modal-backdrop {
@@ -1188,12 +1195,15 @@
       // ---- Call toast (all roles see announcements) ----
       const toastEl = document.getElementById('call-toast');
       let toastTimer = null;
-      function showCallToast(name, counter) {
+      function showToastHtml(html, ms) {
         if (!toastEl) return;
-        toastEl.innerHTML = '📢 <strong>' + name + '</strong> 민원인님 <span class="counter-chip">' + counter + '번 창구</span>';
+        toastEl.innerHTML = html;
         toastEl.classList.add('show');
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 12000);
+        toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, ms);
+      }
+      function showCallToast(name, counter) {
+        showToastHtml('📢 <strong>' + name + '</strong> 민원인님 <span class="counter-chip">' + counter + '번 창구</span>', 12000);
       }
       let lastCallId = null;
       async function pollCallState() {
@@ -1244,23 +1254,43 @@
         modal.addEventListener('click', function (e) {
           if (e.target === modal) closeModal();
         });
+        // Lock the 📢 buttons of a card for the server's dedupe window so staff
+        // can see the call went through (and can't double-fire).
+        function markCalled(apptId) {
+          document.querySelectorAll('.card[data-id="' + apptId + '"] .call-btn').forEach(function (b) {
+            b.classList.add('called');
+            b.textContent = '✓';
+            setTimeout(function () {
+              b.classList.remove('called');
+              b.textContent = '📢';
+            }, 25000);
+          });
+        }
+
         document.getElementById('cm-call').addEventListener('click', async function () {
           if (!callApptId || !chosenCounter) return;
+          const apptId = callApptId;
           try {
             const r = await fetch('/api/call', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ appt_id: callApptId, counter: chosenCounter })
+              body: JSON.stringify({ appt_id: apptId, counter: chosenCounter })
             });
             if (r.status === 401) { window.location.href = '/login'; return; }
             if (r.status === 429) {
-              const d = await r.json();
-              alert(d.detail || '잠시 후 다시 호출해주세요.');
+              showToastHtml('⏳ 이미 호출 대기 중입니다 · Already queued', 4000);
             } else if (!r.ok) {
-              alert('호출 실패 (' + r.status + ')');
+              showToastHtml('⚠ 호출 실패 (' + r.status + ')', 4000);
+            } else {
+              const d = await r.json();
+              markCalled(apptId);
+              const q = d.queued || 0;
+              showToastHtml(q > 1
+                ? '✅ 호출 요청 완료 · 대기열 ' + q + '건'
+                : '✅ 호출 요청 완료 · 곧 방송됩니다', 4000);
             }
           } catch (e) {
-            alert('호출 실패: 네트워크 오류');
+            showToastHtml('⚠ 호출 실패: 네트워크 오류', 4000);
           }
           closeModal();
         });

@@ -56,7 +56,7 @@ OPENAI_TTS_INSTRUCTIONS_EN = (
     "Speak calmly and clearly, with a warm and professional tone."
 )
 
-QUEUE_GAP_SECONDS = 5     # silence between two consecutive calls
+QUEUE_GAP_SECONDS = 2     # silence between two consecutive calls
 CALL_SLOT_SECONDS = 16    # how long a call stays "current" (2 plays + pause)
 RECENT_LIMIT = 6
 DEDUPE_SECONDS = 25       # ignore re-call of same appointment within this window
