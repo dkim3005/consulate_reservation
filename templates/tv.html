@@ -258,6 +258,9 @@
         unlockEl.style.display = 'none';
         // Prime the audio element with a user gesture
         try { announcer.play().catch(function () {}); announcer.pause(); } catch (e) {}
+        // Replay the in-progress call (if any) now that audio is allowed
+        lastCallId = null;
+        poll();
       });
 
       const announcer = new Audio();
