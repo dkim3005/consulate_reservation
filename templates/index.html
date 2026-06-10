@@ -474,7 +474,7 @@
 
     .timeline {
       display: grid;
-      grid-auto-rows: 24px;   /* 5 minutes */
+      grid-auto-rows: 32px;   /* 5 minutes */
       gap: 0 6px;
       position: relative;
     }
@@ -505,13 +505,15 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .view-table .card .title-ko,
-    .view-table .card .title-en {
+    .view-table .card .title-ko {
       display: -webkit-box;
       -webkit-line-clamp: 1;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+    /* English service name omitted in the timeline (space is tight);
+       full bilingual text remains in the mobile/grouped view */
+    .view-table .card .title-en { display: none; }
     .view-table .card .top-row { margin-bottom: 3px; }
 
     /* Dim toggle (per-device) */

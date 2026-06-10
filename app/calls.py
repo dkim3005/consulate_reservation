@@ -49,11 +49,13 @@ TTS_RATE = "-10%"  # slightly slower for lobby clarity
 OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
 OPENAI_TTS_VOICE = "coral"
 OPENAI_TTS_INSTRUCTIONS_KO = (
-    "공공기관 대기실 안내방송입니다. 차분하고 따뜻한 톤으로, 또박또박 명확하게 말하세요."
+    "공공기관 대기실 안내방송입니다. 안정적이고 또렷한 목소리로, 일정한 속도와 일정한 음량으로 "
+    "또박또박 명확하게 말하세요. 숨소리나 떨림 없이 단단하게 발음하세요."
 )
 OPENAI_TTS_INSTRUCTIONS_EN = (
     "This is a public-office waiting room announcement. "
-    "Speak calmly and clearly, with a warm and professional tone."
+    "Speak in a steady, clear, even-paced voice with consistent volume. "
+    "No breathiness or wavering — firm and articulate."
 )
 
 QUEUE_GAP_SECONDS = 2     # silence between two consecutive calls
@@ -298,8 +300,11 @@ async def _ensure_tts(text: str, lang: str) -> str | None:
 
     Primary: OpenAI gpt-4o-mini-tts. Fallback: edge-tts. Cached by content hash.
     """
-    engine = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}" if OPENAI_API_KEY \
-        else f"edge:{VOICE_KO if lang == 'ko' else VOICE_EN}:{TTS_RATE}"
+    if OPENAI_API_KEY:
+        instructions = OPENAI_TTS_INSTRUCTIONS_KO if lang == "ko" else OPENAI_TTS_INSTRUCTIONS_EN
+        engine = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}:{instructions}"
+    else:
+        engine = f"edge:{VOICE_KO if lang == 'ko' else VOICE_EN}:{TTS_RATE}"
     digest = hashlib.sha1(f"{engine}|{lang}|{text}".encode()).hexdigest()[:20]
     path = TTS_DIR / f"{digest}.mp3"
     if path.exists():
