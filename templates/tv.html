@@ -92,8 +92,57 @@
       display: grid;
       grid-template-columns: 1.2fr 1fr 1fr;
       gap: 18px;
-      padding: 18px 28px 24px;
+      padding: 18px 28px 18px;
       min-height: 0;
+    }
+
+    /* ===== Bottom news ticker ===== */
+    .ticker {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      overflow: hidden;
+      height: 56px;
+    }
+    .ticker .tag {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #7c2d12;
+      color: #fdba74;
+      font-size: 18px;
+      font-weight: 800;
+      padding: 0 22px;
+      height: 100%;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      z-index: 1;
+    }
+    .ticker .viewport {
+      flex: 1;
+      overflow: hidden;
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+    .ticker-track {
+      display: inline-flex;
+      white-space: nowrap;
+      animation: ticker-scroll 95s linear infinite;
+    }
+    .ticker-track span {
+      font-size: 22px;
+      color: var(--text-2);
+      padding-right: 120px;
+      font-weight: 500;
+    }
+    .ticker-track strong { color: #fdba74; font-weight: 700; }
+    @keyframes ticker-scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
     }
     .panel {
       background: var(--surface);
@@ -234,6 +283,36 @@
     <div class="panel recent">
       <h2>🔔 최근 호출 <span class="en">Recently Called</span><span class="cnt" id="cnt-recent">0</span></h2>
       <div class="list" id="list-recent"><div class="empty">—</div></div>
+    </div>
+  </div>
+
+  <div class="ticker">
+    <div class="tag">⚠️ 안내</div>
+    <div class="viewport">
+      <div class="ticker-track">
+        <span>
+          <strong>재외공관 사칭 보이스피싱 주의</strong> —
+          최근 캐나다 대사관·총영사관을 사칭한 보이스피싱이 급증하고 있습니다 ·
+          공관 전화번호로 발신번호를 위장하고 "마약 범죄 연루", "법원 공문 열람" 등으로 불안감을 조성합니다 ·
+          가짜 사이트 접속, 텔레그램 설치, 개인정보·계좌번호·비밀번호 입력을 유도합니다 ·
+          <strong>정부기관은 전화나 메신저로 개인정보·금융정보를 절대 요구하지 않습니다</strong> ·
+          공공기관 인터넷 주소는 go.kr 형태입니다 ·
+          의심 전화는 즉시 끊고 대사관(+1-613-244-5010) 또는 총영사관에 진위를 재확인하세요 ·
+          피해 발생 시: 한국 계좌는 즉시 한국 112 신고(계좌 동결) ·
+          경찰청 사이버범죄 신고(ecrm.police.go.kr) · 캐나다 사기방지센터(Canadian Anti-Fraud Centre) 신고
+        </span>
+        <span aria-hidden="true">
+          <strong>재외공관 사칭 보이스피싱 주의</strong> —
+          최근 캐나다 대사관·총영사관을 사칭한 보이스피싱이 급증하고 있습니다 ·
+          공관 전화번호로 발신번호를 위장하고 "마약 범죄 연루", "법원 공문 열람" 등으로 불안감을 조성합니다 ·
+          가짜 사이트 접속, 텔레그램 설치, 개인정보·계좌번호·비밀번호 입력을 유도합니다 ·
+          <strong>정부기관은 전화나 메신저로 개인정보·금융정보를 절대 요구하지 않습니다</strong> ·
+          공공기관 인터넷 주소는 go.kr 형태입니다 ·
+          의심 전화는 즉시 끊고 대사관(+1-613-244-5010) 또는 총영사관에 진위를 재확인하세요 ·
+          피해 발생 시: 한국 계좌는 즉시 한국 112 신고(계좌 동결) ·
+          경찰청 사이버범죄 신고(ecrm.police.go.kr) · 캐나다 사기방지센터(Canadian Anti-Fraud Centre) 신고
+        </span>
+      </div>
     </div>
   </div>
 
