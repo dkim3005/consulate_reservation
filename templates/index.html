@@ -472,6 +472,43 @@
     table.schedule thead th.time-col::after { display: none; }
     table.schedule td { vertical-align: top; height: 1px; /* triggers child height:100% */ }
     table.schedule td.empty { background: transparent; }
+
+    /* ---- Per-counter dim toggle (wide table view only, per-device) ---- */
+    table.schedule thead th[class*="col-"] {
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    table.schedule thead th[class*="col-"]:hover { background: var(--surface); }
+    /* Dimmed header: muted bg, no accent line */
+    body.dim-1 table.schedule thead th.col-1,
+    body.dim-2 table.schedule thead th.col-2,
+    body.dim-3 table.schedule thead th.col-3,
+    body.dim-4 table.schedule thead th.col-4,
+    body.dim-5 table.schedule thead th.col-5,
+    body.dim-6 table.schedule thead th.col-6 {
+      background: var(--surface-2);
+      color: var(--text-3);
+    }
+    body.dim-1 table.schedule thead th.col-1::after,
+    body.dim-2 table.schedule thead th.col-2::after,
+    body.dim-3 table.schedule thead th.col-3::after,
+    body.dim-4 table.schedule thead th.col-4::after,
+    body.dim-5 table.schedule thead th.col-5::after,
+    body.dim-6 table.schedule thead th.col-6::after {
+      background: transparent;
+    }
+    /* Dimmed cells: blur + low opacity */
+    body.dim-1 table.schedule tbody td.col-1,
+    body.dim-2 table.schedule tbody td.col-2,
+    body.dim-3 table.schedule tbody td.col-3,
+    body.dim-4 table.schedule tbody td.col-4,
+    body.dim-5 table.schedule tbody td.col-5,
+    body.dim-6 table.schedule tbody td.col-6 {
+      opacity: 0.28;
+      filter: blur(1.2px);
+      transition: opacity 0.2s, filter 0.2s;
+    }
     .time-pill {
       background: var(--surface);
       border: 1px solid var(--border-soft);
@@ -885,6 +922,35 @@
 
   <script>
     (function () {
+      // ---- Per-counter dim toggle (wide/table view, per-device) ----
+      const DIM_KEY = 'consulate-dim-counters';
+      function getDimSet() {
+        try { return new Set(JSON.parse(localStorage.getItem(DIM_KEY) || '[]')); }
+        catch (e) { return new Set(); }
+      }
+      function saveDimSet(s) {
+        try { localStorage.setItem(DIM_KEY, JSON.stringify(Array.from(s))); } catch (e) {}
+      }
+      function applyDim() {
+        const dim = getDimSet();
+        for (let i = 1; i <= 6; i++) {
+          document.body.classList.toggle('dim-' + i, dim.has(i));
+        }
+      }
+      applyDim();
+      document.querySelectorAll('table.schedule thead th').forEach(function (th) {
+        const m = th.className.match(/col-(\d+)/);
+        if (!m) return;
+        const n = parseInt(m[1], 10);
+        th.title = '클릭하여 흐리게 / 원복';
+        th.addEventListener('click', function () {
+          const dim = getDimSet();
+          if (dim.has(n)) dim.delete(n); else dim.add(n);
+          saveDimSet(dim);
+          applyDim();
+        });
+      });
+
       // ---- Sticky header offset (lets thead stick just below the page header) ----
       function syncHeaderH() {
         const h = document.querySelector('.page-header');
