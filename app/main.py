@@ -139,6 +139,8 @@ def _shape(appt: dict, states: dict[str, str]) -> dict:
         "time": start_local.strftime("%H:%M"),
         "time_range": f"{start_local.strftime('%H:%M')}–{end_local.strftime('%H:%M')}",
         "start_iso": start_local.isoformat(),
+        "start_min": start_local.hour * 60 + start_local.minute,
+        "end_min": end_local.hour * 60 + end_local.minute,
         "name_ko": name_ko,
         "name_en": name_en,
         "title_ko": title_ko,
@@ -147,30 +149,43 @@ def _shape(appt: dict, states: dict[str, str]) -> dict:
     }
 
 
-def _build_time_grid(grouped: dict[str, list[dict]], columns: list[str]) -> list[dict]:
-    by_counter_by_time: dict[str, dict[str, dict]] = {}
-    times: set[str] = set()
-    for col in columns:
-        by_counter_by_time[col] = {}
-        for a in grouped.get(col, []):
-            by_counter_by_time[col][a["time"]] = a
-            times.add(a["time"])
+TIMELINE_SLOT_MIN = 5  # grid resolution: 1 row = 5 minutes
 
-    rows: list[dict] = []
-    lunch_inserted = False
-    has_am_before = False
-    for t in sorted(times):
-        if not lunch_inserted and t >= LUNCH_DIVIDER and has_am_before:
-            rows.append({"is_lunch": True, "time": "점심 / Lunch"})
-            lunch_inserted = True
-        rows.append({
-            "is_lunch": False,
-            "time": t,
-            "cells": [by_counter_by_time[c].get(t) for c in columns],
-        })
-        if t < LUNCH_DIVIDER:
-            has_am_before = True
-    return rows
+
+def _build_timeline(grouped: dict[str, list[dict]], columns: list[str]) -> dict | None:
+    """Time-proportional grid: each appointment block spans rows equal to its
+    duration, so a 5-minute gap visually differs from a 15-minute one."""
+    items: list[dict] = []
+    lo: int | None = None
+    hi: int | None = None
+    for ci, col in enumerate(columns, 1):
+        for a in grouped.get(col, []):
+            s = (a["start_min"] // TIMELINE_SLOT_MIN) * TIMELINE_SLOT_MIN
+            e = max(a["end_min"], s + TIMELINE_SLOT_MIN)
+            lo = s if lo is None or s < lo else lo
+            hi = e if hi is None or e > hi else hi
+            items.append({**a, "col": ci, "_s": s, "_e": e})
+    if lo is None:
+        return None
+
+    lo = (lo // 30) * 30
+    hi = ((hi + 29) // 30) * 30
+    total_slots = (hi - lo) // TIMELINE_SLOT_MIN
+
+    for it in items:
+        it["row"] = (it["_s"] - lo) // TIMELINE_SLOT_MIN + 1
+        it["span"] = max((it["_e"] - it["_s"]) // TIMELINE_SLOT_MIN, 2)
+        del it["_s"], it["_e"]
+
+    labels = [
+        {"row": (m - lo) // TIMELINE_SLOT_MIN + 1, "text": f"{m // 60:02d}:{m % 60:02d}"}
+        for m in range(lo, hi, 30)
+    ]
+    lunch = None
+    if lo <= 12 * 60 and hi >= 13 * 60:
+        lunch = {"row": (12 * 60 - lo) // TIMELINE_SLOT_MIN + 1, "span": 60 // TIMELINE_SLOT_MIN}
+
+    return {"slots": total_slots, "labels": labels, "cards": items, "lunch": lunch}
 
 
 def _split_am_pm(items: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -205,7 +220,7 @@ async def _build_payload(role: str) -> dict:
     columns = list(COUNTERS)
     if grouped.get("기타 / Other"):
         columns.append("기타 / Other")
-    time_grid = _build_time_grid(grouped, columns)
+    timeline = _build_timeline(grouped, columns)
     grouped_split = {
         col: {"am": am, "pm": pm}
         for col, (am, pm) in ((c, _split_am_pm(grouped.get(c, []))) for c in columns)
@@ -224,7 +239,7 @@ async def _build_payload(role: str) -> dict:
         "columns": columns,
         "grouped": grouped,
         "grouped_split": grouped_split,
-        "time_grid": time_grid,
+        "timeline": timeline,
         "in_business_hours": in_hours,
         "business_window": f"{BUSINESS_START[0]:02d}:{BUSINESS_START[1]:02d}–{BUSINESS_END[0]:02d}:{BUSINESS_END[1]:02d}",
     }
