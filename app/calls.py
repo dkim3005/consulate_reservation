@@ -32,7 +32,7 @@ try:
 except ImportError:  # pragma: no cover
     edge_tts = None
 
-from app.config import DEEPSEEK_API_KEY
+from app.config import DEEPSEEK_API_KEY, OPENAI_API_KEY
 
 log = logging.getLogger("consulate_dashboard.calls")
 
@@ -40,9 +40,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 TTS_DIR = BASE_DIR / "static" / "tts"
 NAME_CACHE_PATH = BASE_DIR / "name_cache.json"
 
+# edge-tts (fallback when no OpenAI key)
 VOICE_KO = "ko-KR-HyunsuMultilingualNeural"
 VOICE_EN = "en-US-AvaMultilingualNeural"
 TTS_RATE = "-10%"  # slightly slower for lobby clarity
+
+# OpenAI TTS (primary) — gpt-4o-mini-tts is the cheapest TTS model
+OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
+OPENAI_TTS_VOICE = "coral"
+OPENAI_TTS_INSTRUCTIONS_KO = (
+    "공공기관 대기실 안내방송입니다. 차분하고 따뜻한 톤으로, 또박또박 명확하게 말하세요."
+)
+OPENAI_TTS_INSTRUCTIONS_EN = (
+    "This is a public-office waiting room announcement. "
+    "Speak calmly and clearly, with a warm and professional tone."
+)
 
 QUEUE_GAP_SECONDS = 5     # silence between two consecutive calls
 CALL_SLOT_SECONDS = 16    # how long a call stays "current" (2 plays + pause)
@@ -217,21 +229,62 @@ async def _romanized_to_hangul(name: str, force: bool = False) -> str | None:
 
 # ---------- TTS ----------
 
-async def _ensure_tts(text: str, lang: str) -> str | None:
-    """Generate (or reuse cached) mp3; returns URL path or None on failure."""
+async def _openai_tts(text: str, lang: str, path: Path) -> bool:
+    instructions = OPENAI_TTS_INSTRUCTIONS_KO if lang == "ko" else OPENAI_TTS_INSTRUCTIONS_EN
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                "https://api.openai.com/v1/audio/speech",
+                headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+                json={
+                    "model": OPENAI_TTS_MODEL,
+                    "voice": OPENAI_TTS_VOICE,
+                    "input": text,
+                    "instructions": instructions,
+                    "response_format": "mp3",
+                },
+                timeout=20.0,
+            )
+        if r.status_code != 200:
+            log.warning("openai tts HTTP %s for %r: %s", r.status_code, text, r.text[:200])
+            return False
+        path.write_bytes(r.content)
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.warning("openai tts failed for %r: %s", text, e)
+        return False
+
+
+async def _edge_tts(text: str, lang: str, path: Path) -> bool:
     if edge_tts is None:
-        return None
+        return False
     voice = VOICE_KO if lang == "ko" else VOICE_EN
-    digest = hashlib.sha1(f"{voice}|{TTS_RATE}|{text}".encode()).hexdigest()[:20]
+    try:
+        await edge_tts.Communicate(text, voice, rate=TTS_RATE).save(str(path))
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.warning("edge-tts failed for %r: %s", text, e)
+        return False
+
+
+async def _ensure_tts(text: str, lang: str) -> str | None:
+    """Generate (or reuse cached) mp3; returns URL path or None on failure.
+
+    Primary: OpenAI gpt-4o-mini-tts. Fallback: edge-tts. Cached by content hash.
+    """
+    engine = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}" if OPENAI_API_KEY \
+        else f"edge:{VOICE_KO if lang == 'ko' else VOICE_EN}:{TTS_RATE}"
+    digest = hashlib.sha1(f"{engine}|{lang}|{text}".encode()).hexdigest()[:20]
     path = TTS_DIR / f"{digest}.mp3"
-    if not path.exists():
-        TTS_DIR.mkdir(parents=True, exist_ok=True)
-        try:
-            await edge_tts.Communicate(text, voice, rate=TTS_RATE).save(str(path))
-        except Exception as e:  # noqa: BLE001
-            log.warning("edge-tts failed for %r: %s", text, e)
-            return None
-    return f"/static/tts/{path.name}"
+    if path.exists():
+        return f"/static/tts/{path.name}"
+
+    TTS_DIR.mkdir(parents=True, exist_ok=True)
+    if OPENAI_API_KEY and await _openai_tts(text, lang, path):
+        return f"/static/tts/{path.name}"
+    if await _edge_tts(text, lang, path):
+        return f"/static/tts/{path.name}"
+    return None
 
 
 async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]:
