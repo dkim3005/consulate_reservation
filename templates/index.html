@@ -1397,7 +1397,9 @@
           callWalkinNum = num;
           callApptId = null;
           cmName.textContent = '픽업 P-' + num;
-          selectCounter(1);
+          // Default counter by pickup type: passport → 1, family cert → 3
+          const w = walkins.find(function (x) { return x.num === num; });
+          selectCounter(w && w.type === 'family' ? 3 : 1);
           modal.hidden = false;
         };
         function closeModal() { modal.hidden = true; callApptId = null; callWalkinNum = null; }
