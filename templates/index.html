@@ -102,14 +102,16 @@
     .top-row {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px 12px;
       margin-bottom: 10px;
+      flex-wrap: wrap;
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       min-width: 0;
+      flex: 1 1 auto;
     }
     .brand img {
       width: 40px;
@@ -136,7 +138,9 @@
       margin-left: auto;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
     .logout-link {
       display: inline-flex;
@@ -160,6 +164,7 @@
       color: var(--text);
       border-color: var(--text-3);
     }
+    .logout-link svg { width: 14px; height: 14px; flex-shrink: 0; }
 
     /* Labeled day/dark toggle */
     .theme-switch {
@@ -197,8 +202,8 @@
     .title-row {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
-      gap: 14px;
+      align-items: center;
+      gap: 8px 14px;
       flex-wrap: wrap;
     }
     .title-row h1 {
@@ -219,7 +224,8 @@
       font-size: 13px;
       line-height: 1.5;
       display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: 6px;
       flex-wrap: wrap;
     }
     .meta .chip {
@@ -546,8 +552,9 @@
       .passcode .digit { width: 18px; height: 22px; font-size: 13px; }
     }
     @media (max-width: 540px) {
-      .top-row { flex-wrap: wrap; }
-      .top-actions { margin-left: 0; width: 100%; justify-content: space-between; }
+      .logout-text { display: none; }
+      .logout-link { padding: 7px 9px; }
+      .title-row h1 { font-size: 18px; }
     }
 
     .empty-state {
@@ -669,7 +676,10 @@
             <span class="ico">🌙</span><span>Dark</span>
           </button>
         </div>
-        <a class="logout-link" href="/logout">로그아웃 / Sign out</a>
+        <a class="logout-link" href="/logout" title="Sign out">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          <span class="logout-text">Sign out</span>
+        </a>
       </div>
     </div>
 
