@@ -133,9 +133,14 @@ def set_walkin_state(target: date, num: int, state: str) -> bool:
 def delete_walkin(target: date, num: int) -> bool:
     with _lock:
         data = _ensure_today(_read(), target)
-        before = len(data["walkins"])
+        entry = next((w for w in data["walkins"] if w["num"] == num), None)
+        if entry is None:
+            return False
         data["walkins"] = [w for w in data["walkins"] if w["num"] != num]
-        if len(data["walkins"]) != before:
-            _write(data)
-            return True
-        return False
+        # Reclaim the number ONLY for an immediate undo: it was the most
+        # recently issued and still waiting, so nobody was told it yet.
+        # Older/served numbers are never reused (avoids call collisions).
+        if num == data["walkin_seq"] and entry["state"] == "waiting":
+            data["walkin_seq"] = max((w["num"] for w in data["walkins"]), default=0)
+        _write(data)
+        return True
