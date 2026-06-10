@@ -63,26 +63,37 @@
       letter-spacing: -0.01em;
       transition: background 0.15s, color 0.15s;
     }
-    .theme-toggle {
+    .theme-switch {
       position: fixed;
       top: 16px;
       right: 16px;
-      width: 36px;
-      height: 36px;
+      display: inline-flex;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+    }
+    .theme-btn {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text-2);
+      gap: 4px;
+      padding: 6px 10px;
+      background: transparent;
+      border: none;
+      color: var(--text-3);
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 6px;
       cursor: pointer;
-      transition: background 0.12s, color 0.12s;
+      font-family: inherit;
+      letter-spacing: 0.02em;
     }
-    .theme-toggle:hover { background: var(--surface-2); color: var(--text); }
-    .theme-toggle svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; }
-    :root[data-theme="light"] .icon-moon { display: none; }
-    :root:not([data-theme="light"]) .icon-sun { display: none; }
+    .theme-btn .ico { font-size: 13px; line-height: 1; }
+    :root[data-theme="light"] .theme-btn.theme-light,
+    :root:not([data-theme="light"]) .theme-btn.theme-dark {
+      background: var(--surface);
+      color: var(--text);
+    }
 
     .card {
       background: var(--surface);
@@ -191,10 +202,14 @@
   </style>
 </head>
 <body>
-  <button class="theme-toggle" type="button" aria-label="테마 전환" title="다크/라이트 전환">
-    <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke-linecap="round"/></svg>
-    <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-linejoin="round"/></svg>
-  </button>
+  <div class="theme-switch" role="group" aria-label="테마 선택">
+    <button class="theme-btn theme-light" type="button" data-set-theme="light">
+      <span class="ico">☀</span><span>Day</span>
+    </button>
+    <button class="theme-btn theme-dark" type="button" data-set-theme="dark">
+      <span class="ico">🌙</span><span>Dark</span>
+    </button>
+  </div>
 
   <main class="card">
     <div class="brand">
@@ -228,15 +243,15 @@
     (function () {
       const KEY = 'consulate-theme';
       const root = document.documentElement;
-      function isLight() { return root.getAttribute('data-theme') === 'light'; }
-      document.querySelectorAll('.theme-toggle').forEach(function (btn) {
+      document.querySelectorAll('[data-set-theme]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          if (isLight()) {
-            root.removeAttribute('data-theme');
-            try { localStorage.setItem(KEY, 'dark'); } catch (e) {}
-          } else {
+          const target = btn.dataset.setTheme;
+          if (target === 'light') {
             root.setAttribute('data-theme', 'light');
             try { localStorage.setItem(KEY, 'light'); } catch (e) {}
+          } else {
+            root.removeAttribute('data-theme');
+            try { localStorage.setItem(KEY, 'dark'); } catch (e) {}
           }
         });
       });

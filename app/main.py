@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from app import auth, store
+from app import auth, store, vcita
 from app.config import (
     ADMIN_PASSWORD,
     COOKIE_SECURE,
@@ -34,6 +34,18 @@ from app.vcita import COUNTERS, fetch_appointments_for_date, group_by_counter
 LUNCH_DIVIDER = "12:00"
 ROLLOVER_HOUR = 17
 WARM_INTERVAL_SECONDS = 50
+
+# Consulate business hours (America/Toronto). Outside this window, vcita is NOT
+# polled and the browser auto-refresh tag is omitted to avoid wasting API quota.
+BUSINESS_START = (8, 45)
+BUSINESS_END   = (16, 30)
+
+
+def _in_business_hours(now_local: datetime) -> bool:
+    cur = now_local.hour * 60 + now_local.minute
+    start = BUSINESS_START[0] * 60 + BUSINESS_START[1]
+    end   = BUSINESS_END[0]   * 60 + BUSINESS_END[1]
+    return start <= cur < end
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -162,7 +174,14 @@ async def _build_payload(role: str) -> dict:
     tz = ZoneInfo(LOCAL_TZ)
     now_local = datetime.now(tz)
     target = _target_date(now_local)
-    appts = await fetch_appointments_for_date(target)
+    in_hours = _in_business_hours(now_local)
+
+    if in_hours:
+        appts = await fetch_appointments_for_date(target)
+    else:
+        # Outside business hours → serve whatever's cached, do NOT call vcita
+        appts = vcita.peek_cache(target)
+
     states = store.get_states(target)
     grouped_raw = group_by_counter(appts)
     grouped = {c: [_shape(a, states) for a in items] for c, items in grouped_raw.items()}
@@ -182,7 +201,7 @@ async def _build_payload(role: str) -> dict:
         "role": role,
         "is_admin": role == auth.ROLE_ADMIN,
         "passcode": passcode,
-        "date_label": target.strftime("%Y-%m-%d (%A)"),
+        "date_label": target.strftime("%Y-%m-%d (%a)"),
         "updated_at": now_local.strftime("%H:%M:%S"),
         "timezone": LOCAL_TZ,
         "total": len(appts),
@@ -190,17 +209,23 @@ async def _build_payload(role: str) -> dict:
         "grouped": grouped,
         "grouped_split": grouped_split,
         "time_grid": time_grid,
+        "in_business_hours": in_hours,
+        "business_window": f"{BUSINESS_START[0]:02d}:{BUSINESS_START[1]:02d}–{BUSINESS_END[0]:02d}:{BUSINESS_END[1]:02d}",
     }
 
 
 # ---------- Warm loop ----------
 
 async def _warm_loop() -> None:
+    bootstrapped = False  # on first iteration, fetch once regardless of hours
     while True:
         try:
-            target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
-            await fetch_appointments_for_date(target)
-            store.get_passcode(target)  # ensures passcode exists for the day
+            now_local = datetime.now(ZoneInfo(LOCAL_TZ))
+            target = _target_date(now_local)
+            store.get_passcode(target)  # passcode is local-only, run always
+            if not bootstrapped or _in_business_hours(now_local):
+                await fetch_appointments_for_date(target)
+                bootstrapped = True
         except Exception as e:  # noqa: BLE001
             log.warning("cache warm failed: %s", e)
         await asyncio.sleep(WARM_INTERVAL_SECONDS)

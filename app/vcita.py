@@ -114,6 +114,12 @@ def invalidate_cache() -> None:
     _cache.clear()
 
 
+def peek_cache(target: date) -> list[dict]:
+    """Return whatever is cached for the date without triggering a fetch."""
+    hit = _cache.get(target.isoformat())
+    return list(hit[1]) if hit else []
+
+
 def group_by_counter(appointments: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = {c: [] for c in COUNTERS}
     other: list[dict] = []

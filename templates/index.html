@@ -138,7 +138,7 @@
       align-items: center;
       gap: 10px;
     }
-    .icon-btn, .logout-link {
+    .logout-link {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -155,15 +155,44 @@
       transition: background 0.12s, color 0.12s, border-color 0.12s;
       white-space: nowrap;
     }
-    .icon-btn:hover, .logout-link:hover {
+    .logout-link:hover {
       background: var(--surface-2);
       color: var(--text);
       border-color: var(--text-3);
     }
-    .icon-btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; }
-    .icon-btn { padding: 7px 9px; }
-    :root[data-theme="light"] .icon-moon { display: none; }
-    :root:not([data-theme="light"]) .icon-sun { display: none; }
+
+    /* Labeled day/dark toggle */
+    .theme-switch {
+      display: inline-flex;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+      gap: 0;
+    }
+    .theme-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      background: transparent;
+      border: none;
+      color: var(--text-3);
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.02em;
+      transition: background 0.12s, color 0.12s;
+    }
+    .theme-btn .ico { font-size: 13px; line-height: 1; }
+    :root[data-theme="light"] .theme-btn.theme-light,
+    :root:not([data-theme="light"]) .theme-btn.theme-dark {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow-xs);
+    }
 
     .title-row {
       display: flex;
@@ -449,33 +478,22 @@
       overflow: hidden;
       box-shadow: var(--shadow-xs);
     }
-    .counter-section > h2 {
-      margin: 0;
-      padding: 12px 16px;
+    .section-head {
       background: var(--surface-2);
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .section-head h2 {
+      margin: 0;
       font-size: 15px;
       font-weight: 700;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border-soft);
       letter-spacing: -0.015em;
     }
-    .counter-section > h2 .en {
+    .section-head h2 .en {
       color: var(--text-3);
       font-size: 11.5px;
       font-weight: 500;
       margin-left: 6px;
-    }
-    .counter-section > h2 .count {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--c, var(--text-2));
-      font-size: 12px;
-      font-weight: 700;
-      padding: 2px 10px;
-      border-radius: 999px;
-      font-variant-numeric: tabular-nums;
     }
     .counter-section .cards {
       padding: 10px;
@@ -541,6 +559,71 @@
       padding: 80px 20px;
       font-size: 16px;
     }
+
+    /* ---- Mobile counter nav (only in grouped view) ---- */
+    .counter-nav { display: none; }
+    html { scroll-behavior: smooth; }
+    .counter-section, .period-label {
+      scroll-margin-top: calc(var(--header-h, 130px) + 70px);
+    }
+    @media (max-width: 980px) {
+      .counter-nav {
+        display: flex;
+        gap: 6px;
+        position: sticky;
+        top: var(--header-h, 130px);
+        background: var(--bg);
+        padding: 10px 22px 11px;
+        margin: -4px -22px 12px;
+        z-index: 15;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .nav-pill {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-bottom: 3px solid var(--c, var(--border));
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .nav-pill .num {
+        text-align: center;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--c, var(--text));
+        padding: 8px 0 6px;
+        text-decoration: none;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+      }
+      .nav-pill .num:active { background: var(--surface-2); }
+      .nav-pill .periods {
+        display: flex;
+        border-top: 1px solid var(--border-soft);
+        background: transparent;
+      }
+      .nav-pill .periods a,
+      .nav-pill .periods .off {
+        flex: 1;
+        text-align: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text-3);
+        padding: 4px 0 5px;
+        text-decoration: none;
+        letter-spacing: 0.06em;
+      }
+      .nav-pill .periods a:first-child,
+      .nav-pill .periods .off:first-child {
+        border-right: 1px solid var(--border-soft);
+      }
+      .nav-pill .periods a:active { background: var(--surface-2); color: var(--text); }
+      .nav-pill .periods .off { opacity: 0.3; }
+    }
+
     footer {
       margin-top: 24px;
       padding-top: 14px;
@@ -571,17 +654,21 @@
           <div class="passcode" title="시큐리티에 전달할 4자리 코드. 매일 자동 변경.">
             <span class="lock">🔒</span>
             <div>
-              <div class="label">PASSCODE · {{ date_label.split(' ')[0] }}</div>
+              <div class="label">PASSCODE</div>
               <div class="digits">
                 {% for d in passcode %}<span class="digit">{{ d }}</span>{% endfor %}
               </div>
             </div>
           </div>
         {% endif %}
-        <button class="icon-btn theme-toggle" type="button" aria-label="테마 전환" title="다크/라이트 전환">
-          <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke-linecap="round"/></svg>
-          <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-linejoin="round"/></svg>
-        </button>
+        <div class="theme-switch" role="group" aria-label="테마 선택">
+          <button class="theme-btn theme-light" type="button" data-set-theme="light">
+            <span class="ico">☀</span><span>Day</span>
+          </button>
+          <button class="theme-btn theme-dark" type="button" data-set-theme="dark">
+            <span class="ico">🌙</span><span>Dark</span>
+          </button>
+        </div>
         <a class="logout-link" href="/logout">로그아웃 / Sign out</a>
       </div>
     </div>
@@ -590,16 +677,16 @@
       <h1>예약 현황<span class="en">Reservations</span></h1>
       <div class="meta">
         <span class="chip"><strong>{{ date_label }}</strong></span>
-        <span class="chip">총 / Total <strong>{{ total }}</strong></span>
-        <span class="chip">갱신 / Updated <strong>{{ updated_at }}</strong></span>
+        <span class="chip">Total <strong>{{ total }}</strong></span>
+        <span class="chip">Updated <strong>{{ updated_at }}</strong></span>
       </div>
     </div>
 
     <div class="legend">
-      <span class="pill"><span class="dot pend"></span>대기 / Pending</span>
-      <span class="pill"><span class="dot arr"></span>왔음 / Arrived</span>
-      <span class="pill"><span class="dot ns"></span>안왔음 / No-show</span>
-      <span class="hint">탭/클릭하면 상태 전환 · Tap to cycle</span>
+      <span class="pill"><span class="dot pend"></span>Pending</span>
+      <span class="pill"><span class="dot arr"></span>Arrived</span>
+      <span class="pill"><span class="dot ns"></span>No-show</span>
+      <span class="hint">Tap to cycle</span>
     </div>
   </div>
 
@@ -659,19 +746,31 @@
     </div>
 
     <div class="view-grouped">
+      <nav class="counter-nav" aria-label="창구 바로가기">
+        {% for col in columns %}
+          {% set split = grouped_split[col] %}
+          <div class="nav-pill col-{{ loop.index }}">
+            <a class="num" href="#counter-{{ loop.index }}">{{ loop.index }}</a>
+            <div class="periods">
+              {% if split.am %}<a href="#counter-{{ loop.index }}-am">AM</a>{% else %}<span class="off">AM</span>{% endif %}
+              {% if split.pm %}<a href="#counter-{{ loop.index }}-pm">PM</a>{% else %}<span class="off">PM</span>{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </nav>
       {% for col in columns %}
         {% set split = grouped_split[col] %}
         {% set total_col = split.am|length + split.pm|length %}
-        <section class="counter-section col-{{ loop.index }}">
-          <h2>
-            <span>{{ col }}<span class="en">Counter {{ loop.index }}</span></span>
-            <span class="count">{{ total_col }}</span>
-          </h2>
+        {% set col_idx = loop.index %}
+        <section class="counter-section col-{{ col_idx }}" id="counter-{{ col_idx }}">
+          <div class="section-head">
+            <h2>{{ col }}<span class="en">Counter {{ col_idx }}</span></h2>
+          </div>
           <div class="cards">
             {% if split.am %}
-              <div class="period-label">오전 · AM</div>
+              <div class="period-label" id="counter-{{ col_idx }}-am">AM</div>
               {% for a in split.am %}
-                <div class="card col-{{ loop.index }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}">
+                <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}">
                   <div class="top-row">
                     <span class="duration">{{ a.time_range }}</span>
                     <span class="state-badge">{% if a.attendance == 'arrived' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
@@ -693,9 +792,9 @@
               </div>
             {% endif %}
             {% if split.pm %}
-              <div class="period-label">오후 · PM</div>
+              <div class="period-label" id="counter-{{ col_idx }}-pm">PM</div>
               {% for a in split.pm %}
-                <div class="card col-{{ loop.index }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}">
+                <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}">
                   <div class="top-row">
                     <span class="duration">{{ a.time_range }}</span>
                     <span class="state-badge">{% if a.attendance == 'arrived' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
@@ -743,18 +842,18 @@
         if (h) new ResizeObserver(syncHeaderH).observe(h);
       }
 
-      // ---- Theme toggle ----
+      // ---- Theme switch ----
       const KEY = 'consulate-theme';
       const root = document.documentElement;
-      function isLight() { return root.getAttribute('data-theme') === 'light'; }
-      document.querySelectorAll('.theme-toggle').forEach(function (btn) {
+      document.querySelectorAll('[data-set-theme]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          if (isLight()) {
-            root.removeAttribute('data-theme');
-            try { localStorage.setItem(KEY, 'dark'); } catch (e) {}
-          } else {
+          const target = btn.dataset.setTheme;
+          if (target === 'light') {
             root.setAttribute('data-theme', 'light');
             try { localStorage.setItem(KEY, 'light'); } catch (e) {}
+          } else {
+            root.removeAttribute('data-theme');
+            try { localStorage.setItem(KEY, 'dark'); } catch (e) {}
           }
         });
       });
