@@ -673,6 +673,96 @@
       font-size: 16px;
     }
 
+    /* ---- Walk-in pickup bar/panel ---- */
+    .walkin-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .wi-toggle, .wi-add {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-2);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.12s, color 0.12s;
+    }
+    .wi-toggle:hover, .wi-add:hover { background: var(--surface-2); color: var(--text); }
+    .wi-add .en-sub { color: var(--text-3); font-size: 10.5px; font-weight: 500; }
+    .wi-badge {
+      background: var(--waiting);
+      color: #1c1500;
+      font-size: 11.5px;
+      font-weight: 800;
+      padding: 1px 8px;
+      border-radius: 99px;
+      font-variant-numeric: tabular-nums;
+      animation: onair 1.4s ease-in-out infinite;
+    }
+    .walkin-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .walkin-panel .empty { color: var(--text-3); font-size: 13px; padding: 4px; }
+    .wi-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      font-size: 13px;
+    }
+    .wi-card .wi-num { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+    .wi-card .wi-type, .wi-card .wi-time { color: var(--text-3); font-size: 12px; }
+    .wi-card .wi-state { font-size: 13px; }
+    .wi-card.st-waiting { background: var(--waiting-soft); border-color: var(--waiting); }
+    .wi-card.st-active  { background: var(--active-soft);  border-color: var(--active); }
+    .wi-card.st-done    { background: var(--done-soft);    border-color: var(--done); opacity: 0.6; }
+    .wi-card .call-btn { margin-left: 2px; }
+    .wi-card .wi-del {
+      background: transparent;
+      border: none;
+      color: var(--text-3);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 2px 4px;
+      font-family: inherit;
+    }
+    .wi-card .wi-del:hover { color: var(--noshow); }
+
+    /* Big number modal shown right after registration */
+    .wi-num-display {
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+    .wi-num-display .big {
+      font-size: 64px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+    .wi-num-display .typ { color: var(--text-2); font-size: 15px; margin-top: 4px; }
+    .wi-num-display .hint { color: var(--text-3); font-size: 12px; margin-top: 12px; line-height: 1.5; }
+
     /* ---- Voice call button (admin only) ---- */
     .call-btn {
       background: transparent;
@@ -951,6 +1041,13 @@
       <span class="pill"><span class="dot ns"></span>No-show</span>
       <span class="hint">Tap to cycle · auto-marked late after appointment time</span>
     </div>
+
+    <div class="walkin-bar">
+      <button class="wi-toggle" id="wi-toggle" type="button">📦 픽업 <span class="wi-badge" id="wi-badge" hidden>0</span></button>
+      <button class="wi-add" data-type="passport" type="button">+ 여권 <span class="en-sub">Passport</span></button>
+      <button class="wi-add" data-type="family" type="button">+ 가족관계등록부 <span class="en-sub">Family Cert.</span></button>
+    </div>
+    <div class="walkin-panel" id="wi-panel" hidden></div>
   </div>
 
   {% if timeline %}
@@ -1096,6 +1193,20 @@
   {% endif %}
 
   <div class="toast-stack" id="toast-stack"></div>
+
+  <div class="call-modal-backdrop" id="wi-modal" hidden>
+    <div class="call-modal">
+      <div class="wi-num-display">
+        <div class="big" id="wi-num-big">P-?</div>
+        <div class="typ" id="wi-num-type"></div>
+        <div class="hint">민원인에게 이 번호를 알려주세요<br>Tell the visitor this number</div>
+      </div>
+      <div class="cm-actions">
+        <button type="button" class="cm-cancel" id="wi-undo">잘못 눌렀어요 · Undo</button>
+        <button type="button" class="cm-call" id="wi-ok">확인 · OK</button>
+      </div>
+    </div>
+  </div>
 
   <footer>
     <div class="copy">© 2026 주토론토총영사관 예약 대시보드</div>
@@ -1252,11 +1363,13 @@
       setInterval(pollCallState, 3000);
 
       // ---- Call modal (admin only; elements absent otherwise) ----
+      let openWalkinCall = null;  // set inside the modal block; used by walk-in panel
       const modal = document.getElementById('call-modal');
       if (modal) {
         const cmName = document.getElementById('cm-name');
         const cmCounters = document.getElementById('cm-counters');
         let callApptId = null;
+        let callWalkinNum = null;
         let chosenCounter = null;
 
         function selectCounter(n) {
@@ -1273,13 +1386,21 @@
 
         function openCallModal(card) {
           callApptId = card.dataset.id;
+          callWalkinNum = null;
           cmName.textContent = card.dataset.name || '—';
           let def = parseInt(card.dataset.counter, 10);
           if (!(def >= 1 && def <= 5)) def = 1;
           selectCounter(def);
           modal.hidden = false;
         }
-        function closeModal() { modal.hidden = true; callApptId = null; }
+        openWalkinCall = function (num) {
+          callWalkinNum = num;
+          callApptId = null;
+          cmName.textContent = '픽업 P-' + num;
+          selectCounter(1);
+          modal.hidden = false;
+        };
+        function closeModal() { modal.hidden = true; callApptId = null; callWalkinNum = null; }
 
         document.getElementById('cm-cancel').addEventListener('click', closeModal);
         modal.addEventListener('click', function (e) {
@@ -1299,13 +1420,18 @@
         }
 
         document.getElementById('cm-call').addEventListener('click', async function () {
-          if (!callApptId || !chosenCounter) return;
+          if ((!callApptId && callWalkinNum === null) || !chosenCounter) return;
           const apptId = callApptId;
+          const walkinNum = callWalkinNum;
+          const url = walkinNum !== null ? '/api/call-walkin' : '/api/call';
+          const body = walkinNum !== null
+            ? { num: walkinNum, counter: chosenCounter }
+            : { appt_id: apptId, counter: chosenCounter };
           try {
-            const r = await fetch('/api/call', {
+            const r = await fetch(url, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ appt_id: apptId, counter: chosenCounter })
+              body: JSON.stringify(body)
             });
             if (r.status === 401) { window.location.href = '/login'; return; }
             if (r.status === 429) {
@@ -1314,7 +1440,7 @@
               showToastHtml('⚠ 호출 실패 (' + r.status + ')', 4000);
             } else {
               const d = await r.json();
-              markCalled(apptId);
+              if (apptId) markCalled(apptId);
               const q = d.queued || 0;
               showToastHtml(q > 1
                 ? '✅ 호출 요청 완료 · 대기열 ' + q + '건'
@@ -1333,6 +1459,128 @@
           });
         });
       }
+
+      // ---- Walk-in pickup queue ----
+      const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+      const WI_EN = { passport: 'Passport', family: 'Family Cert.' };
+      const WI_ICON = { waiting: '⏳', active: '▶', done: '✓' };
+      const WI_CYCLE = { waiting: 'active', active: 'done', done: 'waiting' };
+      let walkins = {{ walkins | tojson }};
+
+      const wiPanel = document.getElementById('wi-panel');
+      const wiBadge = document.getElementById('wi-badge');
+      const wiToggle = document.getElementById('wi-toggle');
+      const wiModal = document.getElementById('wi-modal');
+      let lastRegistered = null;
+
+      function renderWalkins() {
+        const pending = walkins.filter(function (w) { return w.state !== 'done'; }).length;
+        wiBadge.textContent = pending;
+        wiBadge.hidden = pending === 0;
+        if (!walkins.length) {
+          wiPanel.innerHTML = '<div class="empty">접수된 픽업이 없습니다 · No pickups</div>';
+          return;
+        }
+        wiPanel.innerHTML = walkins.map(function (w) {
+          let btns = '';
+          if (IS_ADMIN) btns += '<button class="call-btn wi-callbtn" data-num="' + w.num + '" type="button" title="호출">📢</button>';
+          if (IS_ADMIN || w.state === 'waiting') btns += '<button class="wi-del" data-num="' + w.num + '" type="button" title="삭제 · Remove">✕</button>';
+          return '<div class="wi-card st-' + w.state + '" data-num="' + w.num + '">' +
+            '<span class="wi-num">P-' + w.num + '</span>' +
+            '<span class="wi-type">' + w.type_label + ' · ' + (WI_EN[w.type] || '') + '</span>' +
+            '<span class="wi-time">' + w.time + '</span>' +
+            '<span class="wi-state">' + (WI_ICON[w.state] || '') + '</span>' +
+            btns + '</div>';
+        }).join('');
+      }
+      renderWalkins();
+
+      wiToggle.addEventListener('click', function () {
+        wiPanel.hidden = !wiPanel.hidden;
+      });
+
+      document.querySelectorAll('.wi-add').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          try {
+            const r = await fetch('/api/walkin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: btn.dataset.type })
+            });
+            if (r.status === 401) { window.location.href = '/login'; return; }
+            if (!r.ok) { showToastHtml('⚠ 접수 실패 (' + r.status + ')', 4000); return; }
+            const d = await r.json();
+            lastRegistered = d.walkin;
+            walkins.push(d.walkin);
+            wiPanel.hidden = false;
+            renderWalkins();
+            document.getElementById('wi-num-big').textContent = 'P-' + d.walkin.num;
+            document.getElementById('wi-num-type').textContent =
+              d.walkin.type_label + ' · ' + (WI_EN[d.walkin.type] || '');
+            wiModal.hidden = false;
+          } catch (e) {
+            showToastHtml('⚠ 접수 실패: 네트워크 오류', 4000);
+          }
+        });
+      });
+
+      document.getElementById('wi-ok').addEventListener('click', function () {
+        wiModal.hidden = true;
+        lastRegistered = null;
+      });
+      document.getElementById('wi-undo').addEventListener('click', async function () {
+        if (lastRegistered) {
+          try {
+            await fetch('/api/walkin/' + lastRegistered.num, { method: 'DELETE' });
+            walkins = walkins.filter(function (w) { return w.num !== lastRegistered.num; });
+            renderWalkins();
+            showToastHtml('🗑 P-' + lastRegistered.num + ' 취소됨 · Cancelled', 3000);
+          } catch (e) {}
+        }
+        wiModal.hidden = true;
+        lastRegistered = null;
+      });
+
+      // Panel interactions (delegated — cards re-render often)
+      wiPanel.addEventListener('click', async function (e) {
+        const callBtn = e.target.closest('.wi-callbtn');
+        const delBtn = e.target.closest('.wi-del');
+        const card = e.target.closest('.wi-card');
+        if (callBtn) {
+          e.stopPropagation();
+          if (typeof openWalkinCall === 'function') openWalkinCall(parseInt(callBtn.dataset.num, 10));
+          return;
+        }
+        if (delBtn) {
+          e.stopPropagation();
+          const num = parseInt(delBtn.dataset.num, 10);
+          try {
+            const r = await fetch('/api/walkin/' + num, { method: 'DELETE' });
+            if (r.ok) {
+              walkins = walkins.filter(function (w) { return w.num !== num; });
+              renderWalkins();
+            } else if (r.status === 403) {
+              showToastHtml('⚠ 처리 중인 항목은 창구 직원만 삭제할 수 있습니다', 4000);
+            }
+          } catch (e2) {}
+          return;
+        }
+        if (card) {
+          const num = parseInt(card.dataset.num, 10);
+          const w = walkins.find(function (x) { return x.num === num; });
+          if (!w) return;
+          const next = WI_CYCLE[w.state] || 'waiting';
+          w.state = next;
+          renderWalkins();
+          try {
+            await fetch('/api/walkin/' + num + '/state', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ state: next })
+            });
+          } catch (e2) {}
+        }
+      });
 
       // ---- Live attendance sync (10s polling) ----
       // Pulls latest states from server and applies any deltas without a full
@@ -1354,6 +1602,10 @@
               applyEverywhere(card.dataset.id, desired);
             }
           });
+          if (data.walkins) {
+            walkins = data.walkins;
+            renderWalkins();
+          }
         } catch (e) {
           // network blips are fine — next poll will recover
         }

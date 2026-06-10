@@ -387,6 +387,36 @@ async def enqueue(appt_id: str, name: str, counter: int) -> tuple[bool, str]:
     return True, ""
 
 
+async def enqueue_custom(dedupe_key: str, display_name: str, text: str,
+                         counter: int, lang: str = "ko") -> tuple[bool, str]:
+    """Queue a pre-composed announcement (e.g. walk-in pickup numbers).
+
+    display_name is shown as-is on dashboards AND the TV (no masking —
+    pickup numbers carry no personal information)."""
+    if not (1 <= counter <= 5):
+        return False, "counter must be 1-5"
+    now = time.time()
+    last = _last_enqueued.get(dedupe_key)
+    if last and (now - last) < DEDUPE_SECONDS:
+        return False, f"{DEDUPE_SECONDS}초 이내 재호출할 수 없습니다"
+    _last_enqueued[dedupe_key] = now
+
+    global _seq
+    _seq += 1
+    call = {
+        "id": _seq,
+        "appt_id": dedupe_key,
+        "name": display_name,
+        "name_masked": display_name,
+        "counter": counter,
+        "lang": lang,
+        "text": text,
+        "ts": now,
+    }
+    await _ensure_queue().put(call)
+    return True, ""
+
+
 def get_state(masked: bool = False) -> dict:
     def strip(call: dict | None) -> dict | None:
         if call is None:

@@ -40,15 +40,19 @@ def _write(data: dict) -> None:
 def _ensure_today(data: dict, target: date) -> dict:
     """Reset to a fresh day's record if the stored date doesn't match target.
 
-    Same-date reads preserve existing states and passcode.
+    Same-date reads preserve existing states, passcode and walk-in queue.
     """
     iso = target.isoformat()
     if data.get("date") != iso:
-        return {"date": iso, "passcode": _generate_passcode(), "states": {}}
+        return {"date": iso, "passcode": _generate_passcode(), "states": {},
+                "walkins": [], "walkin_seq": 0}
     if "passcode" not in data or not data["passcode"]:
         data["passcode"] = _generate_passcode()
     if "states" not in data:
         data["states"] = {}
+    if "walkins" not in data:
+        data["walkins"] = []
+        data["walkin_seq"] = 0
     return data
 
 
@@ -79,3 +83,59 @@ def set_state(target: date, appointment_id: str, state: str) -> None:
         else:
             data["states"][appointment_id] = state
         _write(data)
+
+
+# ---------- Walk-in pickup queue (no-reservation visitors) ----------
+
+WALKIN_TYPES = {"passport": "여권", "family": "가족관계등록부"}
+WALKIN_STATES = {"waiting", "active", "done"}
+
+
+def add_walkin(target: date, wtype: str, time_label: str) -> dict:
+    if wtype not in WALKIN_TYPES:
+        raise ValueError(f"invalid walk-in type: {wtype!r}")
+    with _lock:
+        data = _ensure_today(_read(), target)
+        data["walkin_seq"] += 1
+        entry = {
+            "num": data["walkin_seq"],
+            "type": wtype,
+            "type_label": WALKIN_TYPES[wtype],
+            "state": "waiting",
+            "time": time_label,
+        }
+        data["walkins"].append(entry)
+        _write(data)
+        return entry
+
+
+def get_walkins(target: date) -> list[dict]:
+    with _lock:
+        data = _read()
+        if data.get("date") != target.isoformat():
+            return []
+        return list(data.get("walkins", []))
+
+
+def set_walkin_state(target: date, num: int, state: str) -> bool:
+    if state not in WALKIN_STATES:
+        raise ValueError(f"invalid state: {state!r}")
+    with _lock:
+        data = _ensure_today(_read(), target)
+        for w in data["walkins"]:
+            if w["num"] == num:
+                w["state"] = state
+                _write(data)
+                return True
+        return False
+
+
+def delete_walkin(target: date, num: int) -> bool:
+    with _lock:
+        data = _ensure_today(_read(), target)
+        before = len(data["walkins"])
+        data["walkins"] = [w for w in data["walkins"] if w["num"] != num]
+        if len(data["walkins"]) != before:
+            _write(data)
+            return True
+        return False

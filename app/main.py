@@ -227,6 +227,7 @@ async def _build_payload(role: str) -> dict:
     }
 
     passcode = store.get_passcode(target) if role == auth.ROLE_ADMIN else None
+    walkins = store.get_walkins(target)
 
     return {
         "role": role,
@@ -240,6 +241,7 @@ async def _build_payload(role: str) -> dict:
         "grouped": grouped,
         "grouped_split": grouped_split,
         "timeline": timeline,
+        "walkins": walkins,
         "in_business_hours": in_hours,
         "business_window": f"{BUSINESS_START[0]:02d}:{BUSINESS_START[1]:02d}–{BUSINESS_END[0]:02d}:{BUSINESS_END[1]:02d}",
     }
@@ -383,6 +385,75 @@ async def call_state(role: str = Depends(require_session_api)) -> JSONResponse:
     return JSONResponse(calls.get_state())
 
 
+# ---------- Walk-in pickup queue ----------
+
+class WalkinCreate(BaseModel):
+    type: str
+
+
+class WalkinState(BaseModel):
+    state: str
+
+
+class WalkinCall(BaseModel):
+    num: int
+    counter: int
+
+
+@app.post("/api/walkin")
+async def create_walkin(req: WalkinCreate, role: str = Depends(require_session_api)) -> JSONResponse:
+    tz = ZoneInfo(LOCAL_TZ)
+    now_local = datetime.now(tz)
+    target = _target_date(now_local)
+    try:
+        entry = store.add_walkin(target, req.type, now_local.strftime("%H:%M"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return JSONResponse({"ok": True, "walkin": entry})
+
+
+@app.post("/api/walkin/{num}/state")
+async def update_walkin(num: int, req: WalkinState, role: str = Depends(require_session_api)) -> JSONResponse:
+    target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
+    try:
+        found = store.set_walkin_state(target, num, req.state)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not found:
+        raise HTTPException(status_code=404, detail="walk-in not found")
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/walkin/{num}")
+async def remove_walkin(num: int, role: str = Depends(require_session_api)) -> JSONResponse:
+    """Security (staff) can undo mistakes while the entry is still waiting;
+    once it's been called/served (active/done), only admin can delete."""
+    target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
+    entry = next((w for w in store.get_walkins(target) if w["num"] == num), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="walk-in not found")
+    if role != auth.ROLE_ADMIN and entry["state"] != "waiting":
+        raise HTTPException(status_code=403, detail="already in service — ask staff to remove")
+    store.delete_walkin(target, num)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/call-walkin")
+async def call_walkin(req: WalkinCall, role: str = Depends(require_session_api)) -> JSONResponse:
+    if role != auth.ROLE_ADMIN:
+        raise HTTPException(status_code=403, detail="call permission is staff-only")
+    target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
+    entry = next((w for w in store.get_walkins(target) if w["num"] == req.num), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="walk-in not found")
+    display = f"픽업 P-{req.num}"
+    text = f"픽업 {req.num}번 민원인님, {req.counter}번 창구로 오세요."
+    ok, err = await calls.enqueue_custom(f"walkin:{req.num}", display, text, req.counter)
+    if not ok:
+        raise HTTPException(status_code=429, detail=err)
+    return JSONResponse({"ok": True, "queued": calls.get_state()["queue_size"]})
+
+
 # ---------- TV waiting board ----------
 
 @app.get("/api/tv")
@@ -401,6 +472,12 @@ async def api_tv(role: str = Depends(require_session_api)) -> JSONResponse:
                 waiting.append(entry)
             elif a["attendance"] == "active":
                 active.append(entry)
+    for w in payload["walkins"]:
+        entry = {"name": f"픽업 P-{w['num']}", "counter": 0, "time": w["time"]}
+        if w["state"] == "waiting":
+            waiting.append(entry)
+        elif w["state"] == "active":
+            active.append(entry)
     waiting.sort(key=lambda e: e["time"])
     active.sort(key=lambda e: e["time"])
     return JSONResponse({
