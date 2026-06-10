@@ -1465,8 +1465,10 @@
       // ---- Walk-in pickup queue ----
       const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
       const WI_EN = { passport: 'Passport', family: 'Family Cert.' };
+      // Pickups have no "done" state — when finished, staff removes the card
+      // with ✕. Click toggles waiting ⇄ active only.
       const WI_ICON = { waiting: '⏳', active: '▶', done: '✓' };
-      const WI_CYCLE = { waiting: 'active', active: 'done', done: 'waiting' };
+      const WI_CYCLE = { waiting: 'active', active: 'waiting', done: 'waiting' };
       let walkins = {{ walkins | tojson }};
 
       const wiPanel = document.getElementById('wi-panel');
