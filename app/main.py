@@ -323,6 +323,11 @@ async def report_print_page() -> FileResponse:
     return FileResponse(BASE_DIR / "static" / "report_print.html")
 
 
+@app.get("/manual", response_class=FileResponse)
+async def manual_page() -> FileResponse:
+    return FileResponse(BASE_DIR / "static" / "manual.html")
+
+
 # ---------- Dashboard routes ----------
 
 @app.get("/api/today")
