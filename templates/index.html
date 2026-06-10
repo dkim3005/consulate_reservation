@@ -660,11 +660,16 @@
     }
     .call-btn:hover { background: var(--surface-2); border-color: var(--accent); }
     .call-btn.called {
-      background: var(--done-soft);
-      border-color: var(--done);
-      color: var(--done);
+      background: var(--active-soft);
+      border-color: var(--active);
+      color: var(--active);
       pointer-events: none;
       font-weight: 700;
+      animation: onair 1.2s ease-in-out infinite;
+    }
+    @keyframes onair {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
     }
 
     /* ---- Call modal ---- */
@@ -1259,7 +1264,7 @@
         function markCalled(apptId) {
           document.querySelectorAll('.card[data-id="' + apptId + '"] .call-btn').forEach(function (b) {
             b.classList.add('called');
-            b.textContent = '✓';
+            b.textContent = '🔊';
             setTimeout(function () {
               b.classList.remove('called');
               b.textContent = '📢';
