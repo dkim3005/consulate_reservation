@@ -326,20 +326,15 @@
             'cnt-recent');
 
           const cur = d.call.current;
-          if (cur) {
+          if (cur && cur.id !== lastCallId) {
+            lastCallId = cur.id;
             document.getElementById('call-name').textContent = cur.name;
             document.getElementById('call-counter').textContent = cur.counter + '번 창구';
             banner.classList.add('show');
             clearTimeout(bannerTimer);
-            if (cur.id !== lastCallId) {
-              lastCallId = cur.id;
-              if (cur.audio_url) playTwice(cur.audio_url);
-              else speakTwiceFallback(cur.text, cur.lang);
-            }
-          } else {
-            // keep banner a moment after call slot ends, then hide
-            clearTimeout(bannerTimer);
-            bannerTimer = setTimeout(function () { banner.classList.remove('show'); }, 3000);
+            bannerTimer = setTimeout(function () { banner.classList.remove('show'); }, 5000);
+            if (cur.audio_url) playTwice(cur.audio_url);
+            else speakTwiceFallback(cur.text, cur.lang);
           }
         } catch (e) { /* next poll recovers */ }
       }
