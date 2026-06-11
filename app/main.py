@@ -509,7 +509,9 @@ async def call_walkin(req: WalkinCall, role: str = Depends(require_session_api))
     if entry is None:
         raise HTTPException(status_code=404, detail="walk-in not found")
     display = f"픽업 P-{req.num}"
-    text = f"픽업 {req.num}번, {req.counter}번 창구로 오세요."
+    # "P" included in speech (matches the "P-1" the visitor was told) and a
+    # full stop before the counter — avoids "1번 1번" running together
+    text = f"픽업 P {req.num}번. {req.counter}번 창구로 오세요."
     ok, err = await calls.enqueue_custom(f"walkin:{req.num}", display, text, req.counter)
     if not ok:
         raise HTTPException(status_code=429, detail=err)
