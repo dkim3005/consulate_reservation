@@ -46,7 +46,7 @@ def _ensure_today(data: dict, target: date) -> dict:
     iso = target.isoformat()
     if data.get("date") != iso:
         return {"date": iso, "passcode": _generate_passcode(), "states": {},
-                "walkins": [], "walkin_seq": 0, "walkin_seq_w": 0}
+                "walkins": [], "walkin_seq": 0, "walkin_seq_w": 0, "notes": {}}
     if "passcode" not in data or not data["passcode"]:
         data["passcode"] = _generate_passcode()
     if "states" not in data:
@@ -56,6 +56,8 @@ def _ensure_today(data: dict, target: date) -> dict:
         data["walkin_seq"] = 0
     if "walkin_seq_w" not in data:
         data["walkin_seq_w"] = 0
+    if "notes" not in data:
+        data["notes"] = {}
     for w in data["walkins"]:  # migrate pre-uid entries
         w.setdefault("prefix", "P")
         w.setdefault("uid", f"{w['prefix']}-{w['num']}")
@@ -90,6 +92,28 @@ def set_state(target: date, appointment_id: str, state: str) -> None:
         else:
             data["states"][appointment_id] = state
         _write(data)
+
+
+# ---------- Reception notes (per appointment, e.g. "10분 늦는다고 전화옴") ----------
+
+def add_note(target: date, appt_id: str, text: str, time_label: str) -> dict:
+    text = (text or "").strip()[:200]
+    if not text:
+        raise ValueError("note text is empty")
+    with _lock:
+        data = _ensure_today(_read(), target)
+        note = {"text": text, "time": time_label}
+        data["notes"].setdefault(appt_id, []).append(note)
+        _write(data)
+        return note
+
+
+def get_notes(target: date) -> dict[str, list[dict]]:
+    with _lock:
+        data = _read()
+        if data.get("date") != target.isoformat():
+            return {}
+        return dict(data.get("notes", {}))
 
 
 # ---------- Walk-in pickup queue (no-reservation visitors) ----------

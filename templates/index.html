@@ -881,6 +881,56 @@
       50% { opacity: 0.35; }
     }
 
+    /* ---- Reception note button ---- */
+    .note-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1;
+      padding: 3px 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+      opacity: 0.55;
+      transition: opacity 0.12s, border-color 0.12s;
+    }
+    .note-btn:hover { opacity: 1; border-color: var(--accent); }
+    .note-btn.has-note {
+      opacity: 1;
+      border-color: var(--waiting);
+      background: var(--waiting-soft);
+    }
+    .wi-hint {
+      flex-basis: 100%;
+      font-size: 11.5px;
+      color: var(--text-3);
+      padding-top: 2px;
+    }
+    #note-text {
+      width: 100%;
+      min-height: 84px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      margin-bottom: 14px;
+    }
+    .note-list {
+      margin: 0 0 12px;
+      padding: 0;
+      list-style: none;
+      font-size: 13px;
+      color: var(--text-2);
+      max-height: 140px;
+      overflow-y: auto;
+    }
+    .note-list li { padding: 4px 0; border-bottom: 1px dashed var(--border-soft); }
+    .note-list .nt { color: var(--text-3); font-size: 11.5px; margin-right: 6px; font-variant-numeric: tabular-nums; }
+
     /* ---- Call modal ---- */
     .call-modal-backdrop {
       position: fixed;
@@ -1145,6 +1195,7 @@
       <button class="wi-add wi-walkin-open" id="wi-walkin-open" type="button">+ 워크인 <span class="en-sub">Walk-in</span></button>
     </div>
     <div class="walkin-panel" id="wi-panel" hidden></div>
+    <div class="wi-hint" id="wi-hint" hidden>ⓘ 픽업·워크인은 자동으로 사라지지 않습니다 — 응대가 끝나면 창구 직원이 카드의 ✕로 직접 삭제해 주세요. (Entries stay until counter staff removes them with ✕)</div>
   </div>
 
   {% if timeline %}
@@ -1179,6 +1230,8 @@
                data-id="{{ c.id }}" data-start-iso="{{ c.start_iso }}" data-counter="{{ c.col }}" data-name="{{ c.name_ko or c.name_en }}">
             <div class="top-row">
               <span class="duration">{{ c.time_range }}</span>
+              <button class="note-btn {% if c.notes %}has-note{% endif %}" type="button"
+                      title="{% for n in c.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not c.notes %}메모 추가 · Add note{% endif %}">📝{% if c.notes %} {{ c.notes|length }}{% endif %}</button>
               {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
               <span class="state-badge">{% if c.attendance == 'waiting' %}⏳{% elif c.attendance == 'active' %}▶{% elif c.attendance == 'done' %}✓{% elif c.attendance == 'noshow' %}✗{% endif %}</span>
               <span class="auto-badge"></span>
@@ -1220,6 +1273,8 @@
                 <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}" data-start-iso="{{ a.start_iso }}" data-counter="{{ col_idx }}" data-name="{{ a.name_ko or a.name_en }}">
                   <div class="top-row">
                     <span class="duration">{{ a.time_range }}</span>
+                    <button class="note-btn {% if a.notes %}has-note{% endif %}" type="button"
+                            title="{% for n in a.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not a.notes %}메모 추가 · Add note{% endif %}">📝{% if a.notes %} {{ a.notes|length }}{% endif %}</button>
                     {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
                     <span class="state-badge">{% if a.attendance == 'waiting' %}⏳{% elif a.attendance == 'active' %}▶{% elif a.attendance == 'done' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
                     <span class="auto-badge"></span>
@@ -1247,6 +1302,8 @@
                 <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}" data-start-iso="{{ a.start_iso }}" data-counter="{{ col_idx }}" data-name="{{ a.name_ko or a.name_en }}">
                   <div class="top-row">
                     <span class="duration">{{ a.time_range }}</span>
+                    <button class="note-btn {% if a.notes %}has-note{% endif %}" type="button"
+                            title="{% for n in a.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not a.notes %}메모 추가 · Add note{% endif %}">📝{% if a.notes %} {{ a.notes|length }}{% endif %}</button>
                     {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
                     <span class="state-badge">{% if a.attendance == 'waiting' %}⏳{% elif a.attendance == 'active' %}▶{% elif a.attendance == 'done' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
                     <span class="auto-badge"></span>
@@ -1294,6 +1351,19 @@
   {% endif %}
 
   <div class="toast-stack" id="toast-stack"></div>
+
+  <div class="call-modal-backdrop" id="note-modal" hidden>
+    <div class="call-modal">
+      <div class="cm-name" id="note-name">메모</div>
+      <div class="cm-sub">리셉션 전화 내용·특이사항 — 시각은 자동 기록됩니다</div>
+      <ul class="note-list" id="note-list"></ul>
+      <textarea id="note-text" placeholder="예: 14:05 전화 — 10분 정도 늦는다고 함" maxlength="200"></textarea>
+      <div class="cm-actions">
+        <button type="button" class="cm-cancel" id="note-cancel">취소</button>
+        <button type="button" class="cm-call" id="note-save">저장 · Save</button>
+      </div>
+    </div>
+  </div>
 
   <div class="call-modal-backdrop" id="wi-cat-modal" hidden>
     <div class="call-modal">
@@ -1601,6 +1671,8 @@
         wiBadge.hidden = pending === 0;
         // panel shows automatically whenever entries exist
         wiPanel.hidden = walkins.length === 0;
+        const hint = document.getElementById('wi-hint');
+        if (hint) hint.hidden = walkins.length === 0;
         if (!walkins.length) {
           wiPanel.innerHTML = '';
           return;
@@ -1743,6 +1815,14 @@
             walkins = data.walkins;
             renderWalkins();
           }
+          const freshNotes = {};
+          for (const items of Object.values(data.grouped || {})) {
+            for (const a of items) {
+              if (a.notes && a.notes.length) freshNotes[a.id] = a.notes;
+            }
+          }
+          notesData = freshNotes;
+          applyNotesToCards();
         } catch (e) {
           // network blips are fine — next poll will recover
         }

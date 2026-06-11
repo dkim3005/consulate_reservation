@@ -262,8 +262,12 @@ async def _build_payload(role: str) -> dict:
             appts = await fetch_appointments_for_date(target)
 
     states = store.get_states(target)
+    notes_map = store.get_notes(target)
     grouped_raw = group_by_counter(appts)
     grouped = {c: [_shape(a, states) for a in items] for c, items in grouped_raw.items()}
+    for items in grouped.values():
+        for a in items:
+            a["notes"] = notes_map.get(a["id"], [])
 
     # Koreans who booked with a romanized name (e.g. "Kim Shihu"): show the
     # LLM-verified Hangul (김시후) as the primary line, romanized as secondary —
@@ -460,6 +464,25 @@ async def call_state(role: str = Depends(require_session_api)) -> JSONResponse:
 async def clear_recent_calls(role: str = Depends(require_session_api)) -> JSONResponse:
     calls.clear_recent()
     return JSONResponse({"ok": True})
+
+
+# ---------- Reception notes ----------
+
+class NoteCreate(BaseModel):
+    appt_id: str
+    text: str
+
+
+@app.post("/api/note")
+async def create_note(req: NoteCreate, role: str = Depends(require_session_api)) -> JSONResponse:
+    tz = ZoneInfo(LOCAL_TZ)
+    now_local = datetime.now(tz)
+    target = _target_date(now_local)
+    try:
+        note = store.add_note(target, req.appt_id, req.text, now_local.strftime("%H:%M"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return JSONResponse({"ok": True, "note": note})
 
 
 # ---------- Walk-in pickup queue ----------
