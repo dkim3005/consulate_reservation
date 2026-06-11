@@ -49,6 +49,7 @@ TTS_RATE = "-10%"  # slightly slower for lobby clarity
 # Same persona name across locales keeps one announcer identity for KO and EN.
 GOOGLE_TTS_VOICE_KO = "ko-KR-Chirp3-HD-Zephyr"
 GOOGLE_TTS_VOICE_EN = "en-US-Chirp3-HD-Zephyr"
+GOOGLE_TTS_RATE = 0.9  # slightly slower for lobby clarity
 
 # OpenAI TTS (fallback #1) — gpt-4o-mini-tts is the cheapest TTS model.
 OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
@@ -276,7 +277,7 @@ async def _google_tts(text: str, lang: str, path: Path) -> bool:
                 json={
                     "input": {"text": text},
                     "voice": {"languageCode": lang_code, "name": voice},
-                    "audioConfig": {"audioEncoding": "MP3"},
+                    "audioConfig": {"audioEncoding": "MP3", "speakingRate": GOOGLE_TTS_RATE},
                 },
                 timeout=20.0,
             )
@@ -336,7 +337,7 @@ async def _ensure_tts(text: str, lang: str) -> str | None:
     Engine identity is part of the cache hash.
     """
     if GOOGLE_TTS_API_KEY:
-        engine = f"google:{GOOGLE_TTS_VOICE_KO if lang == 'ko' else GOOGLE_TTS_VOICE_EN}"
+        engine = f"google:{GOOGLE_TTS_VOICE_KO if lang == 'ko' else GOOGLE_TTS_VOICE_EN}:{GOOGLE_TTS_RATE}"
     elif OPENAI_API_KEY:
         instructions = OPENAI_TTS_INSTRUCTIONS_KO if lang == "ko" else OPENAI_TTS_INSTRUCTIONS_EN
         engine = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}:{instructions}"
@@ -357,6 +358,18 @@ async def _ensure_tts(text: str, lang: str) -> str | None:
     return None
 
 
+def _spell_hangul_name(name: str) -> str:
+    """Hospital-style syllable separation for spoken Korean names.
+
+    김태윤 → '김 태 윤' (TTS reads each syllable distinctly). Only applied to
+    pure-Hangul names up to 4 syllables; display names are never changed.
+    """
+    compact = name.replace(" ", "")
+    if 2 <= len(compact) <= 4 and all("가" <= c <= "힣" for c in compact):
+        return " ".join(compact)
+    return name
+
+
 async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]:
     """Return (lang, display_name, announcement_text).
 
@@ -366,7 +379,7 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
     """
     name = name.strip()
     if _has_hangul(name):
-        return "ko", name, f"{name}님, {counter}번 창구로 오세요."
+        return "ko", name, f"{_spell_hangul_name(name)}님, {counter}번 창구로 오세요."
 
     if _llm_endpoint() is not None:
         hangul = await _romanized_to_hangul(name)
@@ -376,15 +389,15 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
         if not hangul and has_strong_korean_surname(name):
             hangul = await _romanized_to_hangul(name, force=True)
         if hangul:
-            return "ko", name, f"{hangul}님, {counter}번 창구로 오세요."
+            return "ko", name, f"{_spell_hangul_name(hangul)}님, {counter}번 창구로 오세요."
         if has_strong_korean_surname(name):
             # LLM unreachable entirely — still announce in Korean voice
-            return "ko", name, f"{name}님, {counter}번 창구로 오세요."
+            return "ko", name, f"{_spell_hangul_name(name)}님, {counter}번 창구로 오세요."
         return "en", name, f"{name}, please proceed to counter number {counter}."
 
     # No LLM available — fall back to the surname table
     if looks_korean_romanized(name):
-        return "ko", name, f"{name}님, {counter}번 창구로 오세요."
+        return "ko", name, f"{_spell_hangul_name(name)}님, {counter}번 창구로 오세요."
     return "en", name, f"{name}, please proceed to counter number {counter}."
 
 
