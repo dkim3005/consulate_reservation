@@ -74,7 +74,7 @@ OPENAI_TTS_INSTRUCTIONS_EN = (
 QUEUE_GAP_SECONDS = 2     # silence between two consecutive calls
 CALL_SLOT_SECONDS = 12    # how long a call stays "current" (1 play + tail)
 RECENT_LIMIT = 6
-DEDUPE_SECONDS = 25       # ignore re-call of same appointment within this window
+DEDUPE_SECONDS = 12       # matches one call slot (chime + 1 play + tail)
 
 # Conventional romanized Korean surnames (lowercase) — used to detect
 # "Korean name written in English" like "Eunsil Kim".
