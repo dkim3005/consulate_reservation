@@ -580,12 +580,30 @@
       border: 1px dashed var(--border);
       border-radius: 12px;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 14px;
+      gap: 16px;
       z-index: 1;
       margin: 2px 0;
+      padding: 20px;
     }
+    .tl-lunch .lunch-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .lunch-quote {
+      max-width: 640px;
+      text-align: center;
+      color: var(--text-2);
+      font-size: 15px;
+      line-height: 1.7;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+    .lunch-quote::before { content: """; color: var(--text-3); margin-right: 2px; }
+    .lunch-quote::after  { content: """; color: var(--text-3); margin-left: 2px; }
     .lunch-emoji { font-size: 28px; line-height: 1; }
     .lunch-text { text-align: center; line-height: 1.35; }
     .lunch-ko {
@@ -1085,11 +1103,14 @@
         {% endfor %}
         {% if timeline.lunch %}
           <div class="tl-lunch" style="grid-row: {{ timeline.lunch.row }} / span {{ timeline.lunch.span }}; grid-column: 2 / -1;">
-            <span class="lunch-emoji">🍱</span>
-            <div class="lunch-text">
-              <div class="lunch-ko">점심시간 12:00–13:00</div>
-              <div class="lunch-en">Lunch break</div>
+            <div class="lunch-top">
+              <span class="lunch-emoji">🍱</span>
+              <div class="lunch-text">
+                <div class="lunch-ko">점심시간 12:00–13:00</div>
+                <div class="lunch-en">Lunch break</div>
+              </div>
             </div>
+            {% if lunch_quote %}<div class="lunch-quote">{{ lunch_quote }}</div>{% endif %}
           </div>
         {% endif %}
         {% for c in timeline.cards %}
@@ -1156,6 +1177,7 @@
                 <div class="lunch-text">
                   <div class="lunch-ko">점심시간 12:00–13:00</div>
                   <div class="lunch-en">Lunch break</div>
+                  {% if lunch_quote %}<div class="lunch-quote" style="font-size:12.5px; margin-top:6px;">{{ lunch_quote }}</div>{% endif %}
                 </div>
               </div>
             {% endif %}

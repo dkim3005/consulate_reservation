@@ -250,6 +250,7 @@ async def _build_payload(role: str) -> dict:
 
     passcode = store.get_passcode(target) if role == auth.ROLE_ADMIN else None
     walkins = store.get_walkins(target)
+    lunch_quote = await calls.get_daily_quote(target.isoformat())
 
     return {
         "role": role,
@@ -264,6 +265,7 @@ async def _build_payload(role: str) -> dict:
         "grouped_split": grouped_split,
         "timeline": timeline,
         "walkins": walkins,
+        "lunch_quote": lunch_quote,
         "in_business_hours": in_hours,
         "business_window": f"{BUSINESS_START[0]:02d}:{BUSINESS_START[1]:02d}–{BUSINESS_END[0]:02d}:{BUSINESS_END[1]:02d}",
     }
@@ -287,6 +289,7 @@ async def _warm_loop() -> None:
             now_local = datetime.now(ZoneInfo(LOCAL_TZ))
             target = _target_date(now_local)
             store.get_passcode(target)  # passcode is local-only, run always
+            await calls.get_daily_quote(target.isoformat())  # prefetch, cached
             target_changed = last_target is not None and target != last_target
             if last_target is None or target_changed or _in_business_hours(now_local):
                 await fetch_appointments_for_date(target)

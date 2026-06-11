@@ -196,7 +196,8 @@ def _llm_endpoint() -> tuple[str, str, str] | None:
     return None
 
 
-async def _llm(system_prompt: str, user_content: str) -> str | None:
+async def _llm(system_prompt: str, user_content: str,
+               max_tokens: int = 20, temperature: float = 0) -> str | None:
     """One LLM chat call with a single retry. Returns content or None."""
     endpoint = _llm_endpoint()
     if endpoint is None:
@@ -214,8 +215,8 @@ async def _llm(system_prompt: str, user_content: str) -> str | None:
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_content},
                         ],
-                        "temperature": 0,
-                        "max_tokens": 20,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
                     },
                     timeout=12.0,
                 )
@@ -448,6 +449,38 @@ async def _worker() -> None:
         _recent.insert(0, call)
         del _recent[RECENT_LIMIT:]
         await asyncio.sleep(QUEUE_GAP_SECONDS)
+
+
+# ---------- Daily lunch quote (shown in the lunch band) ----------
+
+QUOTE_PROMPT = (
+    "당신은 주토론토 대한민국 총영사관 민원실 직원들을 응원하는 따뜻한 동료입니다. "
+    "점심시간 대시보드에 표시될 짧고 힘이 되는 한마디를 만들어 주세요. "
+    "널리 알려진 명언(끝에 — 인물명 표기)이거나 직접 지은 응원 문구 중 하나로, "
+    "한국어 한 문장, 60자 이내. 따옴표나 부가 설명 없이 문구만 출력하세요."
+)
+QUOTE_FALLBACKS = [
+    "오늘도 누군가의 하루를 편하게 만들어 주셔서 감사합니다. 맛있는 점심 되세요!",
+    "절반 왔습니다. 오후도 가볍게! 🌿",
+    "친절은 가장 멀리까지 들리는 언어입니다. — 마크 트웨인",
+    "잘 쉬는 것도 실력입니다. 든든히 드시고 오세요.",
+    "당신의 수고를 아는 사람이 생각보다 많습니다. 점심 맛있게 드세요!",
+]
+
+_quote_cache: dict[str, str] = {}
+
+
+async def get_daily_quote(date_iso: str) -> str:
+    """One encouraging line per day, generated once and cached."""
+    if date_iso in _quote_cache:
+        return _quote_cache[date_iso]
+    out = await _llm(QUOTE_PROMPT, f"오늘 날짜: {date_iso}", max_tokens=80, temperature=1.0)
+    if out and 5 <= len(out) <= 120:
+        quote = out.strip().strip('"').strip()
+    else:
+        quote = QUOTE_FALLBACKS[hash(date_iso) % len(QUOTE_FALLBACKS)]
+    _quote_cache[date_iso] = quote
+    return quote
 
 
 def start_worker() -> None:
