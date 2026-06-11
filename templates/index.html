@@ -1057,8 +1057,8 @@
       <span class="pill"><span class="dot wait"></span>Waiting</span>
       <span class="pill"><span class="dot act"></span>Active</span>
       <span class="pill"><span class="dot done"></span>Done</span>
-      <span class="pill"><span class="dot ns"></span>No-show</span>
-      <span class="hint">Tap to cycle · auto-marked late after appointment time</span>
+      <span class="pill"><span class="dot ns"></span>No-show (auto, 20m late)</span>
+      <span class="hint">Tap to cycle · no-show applies automatically</span>
     </div>
 
     <div class="walkin-bar">
@@ -1295,18 +1295,22 @@
       });
 
       // ---- Attendance cycle ----
-      const STATES = ['', 'waiting', 'active', 'done', 'noshow'];
+      // No manual no-show: it is applied automatically 20min past the
+      // appointment time whenever no manual state is set. Cycling back to
+      // default re-enables the auto no-show display.
+      const STATES = ['', 'waiting', 'active', 'done'];
       const LABELS = { 'waiting': '⏳', 'active': '▶', 'done': '✓', 'noshow': '✗', '': '' };
 
       function currentState(card) {
-        for (const s of STATES) {
-          if (s && card.classList.contains('state-' + s)) return s;
+        // includes 'noshow' so legacy/stale server states still cycle out
+        for (const s of ['waiting', 'active', 'done', 'noshow']) {
+          if (card.classList.contains('state-' + s)) return s;
         }
         return '';
       }
       function applyEverywhere(id, state) {
         document.querySelectorAll('.card[data-id="' + id + '"]').forEach(function (c) {
-          STATES.forEach(function (s) { if (s) c.classList.remove('state-' + s); });
+          ['waiting', 'active', 'done', 'noshow'].forEach(function (s) { c.classList.remove('state-' + s); });
           if (state) c.classList.add('state-' + state);
           const badge = c.querySelector('.state-badge');
           if (badge) badge.textContent = LABELS[state] || '';
@@ -1636,7 +1640,10 @@
       setInterval(syncFromServer, 10000);
       async function cycle(card) {
         const id = card.dataset.id;
-        const next = STATES[(STATES.indexOf(currentState(card)) + 1) % STATES.length];
+        const cur = currentState(card);
+        // legacy manual noshow (idx -1) → cycle to default; auto-noshow takes over
+        const idx = STATES.indexOf(cur);
+        const next = idx === -1 ? '' : STATES[(idx + 1) % STATES.length];
         applyEverywhere(id, next);
         try {
           const r = await fetch('/api/attendance/' + encodeURIComponent(id), {
