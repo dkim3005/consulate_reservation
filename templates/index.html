@@ -460,12 +460,17 @@
       color: var(--text);
       letter-spacing: -0.01em;
     }
-    .tl-head .th .en {
+    .th-num {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--c, var(--text));
+      font-variant-numeric: tabular-nums;
+    }
+    .th-suffix {
+      font-size: 11.5px;
+      font-weight: 600;
       color: var(--text-3);
-      font-size: 10.5px;
-      font-weight: 500;
-      display: block;
-      margin-top: 1px;
+      margin-left: 3px;
     }
     .tl-head .th::after {
       content: "";
@@ -1148,7 +1153,10 @@
       <div class="tl-head" style="grid-template-columns: {{ tl_cols }};">
         <div class="th time-col">시간<span class="en">Time</span></div>
         {% for col in columns %}
-          <div class="th col-{{ loop.index }}">{{ col }}<span class="en">Counter {{ loop.index }}</span></div>
+          <div class="th col-{{ loop.index }}">
+            {% if loop.index <= 5 %}<span class="th-num">{{ loop.index }}</span><span class="th-suffix">번창구</span>
+            {% else %}<span class="th-suffix">{{ col }}</span>{% endif %}
+          </div>
         {% endfor %}
       </div>
       <div class="timeline" style="grid-template-columns: {{ tl_cols }};">
@@ -1206,7 +1214,7 @@
         {% set col_idx = loop.index %}
         <section class="counter-section col-{{ col_idx }}" id="counter-{{ col_idx }}">
           <div class="section-head">
-            <h2>{{ col }}<span class="en">Counter {{ col_idx }}</span></h2>
+            <h2><span class="th-num">{{ col_idx if col_idx <= 5 else '' }}</span>{{ '번창구' if col_idx <= 5 else col }}</h2>
           </div>
           <div class="cards">
             {% if split.am %}
