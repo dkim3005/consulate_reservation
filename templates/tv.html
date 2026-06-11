@@ -442,7 +442,9 @@
       // ---- "Ding-dong" chime ----
       // Primary: professional sound file (/static/chime.mp3, Mixkit free
       // license). Fallback: synthesized 3-note chime via WebAudio.
-      const chimeAudio = new Audio('/static/chime.mp3');
+      // ?v= busts browser cache whenever the chime file is swapped — bump it
+      // together with any chime change
+      const chimeAudio = new Audio('/static/chime.mp3?v=110');
       chimeAudio.preload = 'auto';
       let chimeCtx = null;
       const CHIME_MAX_MS = 3000;  // don't let a long tail delay the voice
