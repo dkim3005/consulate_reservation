@@ -378,9 +378,10 @@ async def _ensure_tts(text: str, lang: str) -> str | None:
     return None
 
 
-def _speech_case(name: str) -> str:
-    """ALL-CAPS names ("XURI ZHAO") are read letter-by-letter as acronyms by
-    TTS — normalize fully-uppercase tokens to title case for speech."""
+def normalize_caps(name: str) -> str:
+    """Display/speech rule: fully-uppercase Latin tokens ("XURI ZHAO") become
+    title case ("Xuri Zhao"). TTS reads ALL-CAPS as acronyms, and it reads
+    badly on cards too. Mixed-case tokens (McDonald) are left alone."""
     return " ".join(
         t.capitalize() if len(t) > 1 and t.isupper() else t
         for t in name.split()
@@ -419,12 +420,14 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
         if has_strong_korean_surname(name):
             # LLM unreachable entirely — still announce in Korean voice
             return "ko", name, f"{name} 님, {counter}번 창구로 오세요."
-        return "en", name, f"{_speech_case(name)}, please proceed to counter number {counter}."
+        name = normalize_caps(name)
+        return "en", name, f"{name}, please proceed to counter number {counter}."
 
     # No LLM available — fall back to the surname table
     if looks_korean_romanized(name):
         return "ko", name, f"{name} 님, {counter}번 창구로 오세요."
-    return "en", name, f"{_speech_case(name)}, please proceed to counter number {counter}."
+    name = normalize_caps(name)
+    return "en", name, f"{name}, please proceed to counter number {counter}."
 
 
 # ---------- queue ----------

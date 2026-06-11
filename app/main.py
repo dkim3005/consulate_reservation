@@ -137,10 +137,11 @@ def _shape(appt: dict, states: dict[str, str]) -> dict:
     latin_seqs = re.findall(r"[A-Za-z][A-Za-z.\-']*", raw)
     if hangul_seqs:
         name_ko = " ".join(hangul_seqs)
-        name_en = " ".join(latin_seqs) if latin_seqs else romanize_full(ko_first, ko_last)
+        name_en = calls.normalize_caps(" ".join(latin_seqs)) if latin_seqs \
+            else romanize_full(ko_first, ko_last)
     else:
-        name_ko = raw
-        name_en = romanize_full(ko_first, ko_last)
+        name_ko = calls.normalize_caps(raw)
+        name_en = calls.normalize_caps(romanize_full(ko_first, ko_last))
 
     title_ko, title_en = _split_bilingual(appt.get("title"))
 
