@@ -420,6 +420,11 @@ async def enqueue_custom(dedupe_key: str, display_name: str, text: str,
     return True, ""
 
 
+def clear_recent() -> None:
+    """Wipe the recently-called list (used by the TV's bell button)."""
+    _recent.clear()
+
+
 def get_state(masked: bool = False) -> dict:
     def strip(call: dict | None) -> dict | None:
         if call is None:

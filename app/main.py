@@ -410,6 +410,12 @@ async def call_state(role: str = Depends(require_session_api)) -> JSONResponse:
     return JSONResponse(calls.get_state())
 
 
+@app.post("/api/call/clear-recent")
+async def clear_recent_calls(role: str = Depends(require_session_api)) -> JSONResponse:
+    calls.clear_recent()
+    return JSONResponse({"ok": True})
+
+
 # ---------- Walk-in pickup queue ----------
 
 class WalkinCreate(BaseModel):

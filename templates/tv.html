@@ -345,7 +345,7 @@
       <div class="list" id="list-active"><div class="empty">—</div></div>
     </div>
     <div class="panel recent">
-      <h2>🔔 최근 호출 <span class="en">Recently Called</span><span class="cnt" id="cnt-recent">0</span></h2>
+      <h2><span id="clear-recent" style="cursor:pointer" title="모두 지우기 · Clear all">🔔</span> 최근 호출 <span class="en">Recently Called</span><span class="cnt" id="cnt-recent">0</span></h2>
       <div class="list" id="list-recent"><div class="empty">—</div></div>
     </div>
   </div>
@@ -514,6 +514,14 @@
       }
       poll();
       setInterval(poll, 2500);
+
+      // Bell icon clears the recently-called list (server-side)
+      document.getElementById('clear-recent').addEventListener('click', async function () {
+        try {
+          await fetch('/api/call/clear-recent', { method: 'POST' });
+          poll();
+        } catch (e) {}
+      });
     })();
   </script>
 </body>
