@@ -1047,6 +1047,10 @@
             </div>
           </div>
         {% endif %}
+        {% if is_admin %}
+          <a class="logout-link" href="/tv" target="_blank" rel="noopener" title="TV 대기 화면">📺 <span class="logout-text">TV</span></a>
+          <a class="logout-link" href="/manual" target="_blank" rel="noopener" title="사용 안내서">📖 <span class="logout-text">매뉴얼</span></a>
+        {% endif %}
         <div class="theme-switch" role="group" aria-label="테마 선택">
           <button class="theme-btn theme-light" type="button" data-set-theme="light">
             <span class="ico">☀</span><span>Day</span>
