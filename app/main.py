@@ -589,8 +589,8 @@ async def api_tv(role: str = Depends(require_session_api)) -> JSONResponse:
             elif a["attendance"] == "active":
                 active.append(entry)
     for w in payload["walkins"]:
-        word = "픽업" if w.get("kind") == "pickup" else "워크인"
-        entry = {"name": f"{word} {w.get('uid', 'P-' + str(w['num']))}", "counter": 0, "time": w["time"]}
+        # public TV list shows the ticket number only — no queue-type wording
+        entry = {"name": w.get("uid", f"P-{w['num']}"), "counter": 0, "time": w["time"]}
         if w["state"] == "waiting":
             waiting.append(entry)
         elif w["state"] == "active":
