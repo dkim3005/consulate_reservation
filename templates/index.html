@@ -882,7 +882,10 @@
     }
 
     /* ---- Reception note button ---- */
+    /* Hidden by default — notes are rare. Appears when a note exists, or on
+       card hover (desktop) so reception can add one. */
     .note-btn {
+      display: none;
       background: transparent;
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -891,8 +894,12 @@
       padding: 3px 6px;
       cursor: pointer;
       flex-shrink: 0;
-      opacity: 0.55;
+      opacity: 0.7;
       transition: opacity 0.12s, border-color 0.12s;
+    }
+    .note-btn.has-note { display: inline-flex; }
+    @media (hover: hover) {
+      .card:hover .note-btn { display: inline-flex; }
     }
     .note-btn:hover { opacity: 1; border-color: var(--accent); }
     .note-btn.has-note {
@@ -1651,6 +1658,78 @@
           });
         });
       }
+
+      // ---- Reception notes ----
+      const noteModal = document.getElementById('note-modal');
+      let noteApptId = null;
+      let notesData = {};   // appt_id -> [{time,text}] (kept fresh by sync)
+
+      function applyNotesToCards() {
+        document.querySelectorAll('.card[data-id]').forEach(function (card) {
+          const btn = card.querySelector('.note-btn');
+          if (!btn) return;
+          const notes = notesData[card.dataset.id] || [];
+          btn.classList.toggle('has-note', notes.length > 0);
+          btn.textContent = notes.length ? ('📝 ' + notes.length) : '📝';
+          btn.title = notes.length
+            ? notes.map(function (n) { return n.time + ' · ' + n.text; }).join('\n')
+            : '메모 추가 · Add note';
+        });
+      }
+      function openNoteModal(card) {
+        noteApptId = card.dataset.id;
+        document.getElementById('note-name').textContent = '메모 — ' + (card.dataset.name || '');
+        const notes = notesData[noteApptId] || [];
+        document.getElementById('note-list').innerHTML = notes.map(function (n) {
+          return '<li><span class="nt">' + n.time + '</span>' + n.text + '</li>';
+        }).join('') || '<li style="color:var(--text-3)">아직 메모 없음</li>';
+        document.getElementById('note-text').value = '';
+        noteModal.hidden = false;
+        document.getElementById('note-text').focus();
+      }
+      document.getElementById('note-cancel').addEventListener('click', function () {
+        noteModal.hidden = true;
+      });
+      noteModal.addEventListener('click', function (e) {
+        if (e.target === noteModal) noteModal.hidden = true;
+      });
+      document.getElementById('note-save').addEventListener('click', async function () {
+        const text = document.getElementById('note-text').value.trim();
+        if (!text || !noteApptId) { noteModal.hidden = true; return; }
+        try {
+          const r = await fetch('/api/note', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appt_id: noteApptId, text: text })
+          });
+          if (r.ok) {
+            const d = await r.json();
+            (notesData[noteApptId] = notesData[noteApptId] || []).push(d.note);
+            applyNotesToCards();
+            showToastHtml('📝 메모 저장됨', 2500);
+          } else {
+            showToastHtml('⚠ 메모 저장 실패 (' + r.status + ')', 3500);
+          }
+        } catch (e) {
+          showToastHtml('⚠ 네트워크 오류', 3500);
+        }
+        noteModal.hidden = true;
+      });
+      document.querySelectorAll('.note-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          openNoteModal(btn.closest('.card'));
+        });
+      });
+      // seed notesData from server-rendered buttons
+      document.querySelectorAll('.card[data-id] .note-btn.has-note').forEach(function (btn) {
+        const card = btn.closest('.card');
+        const lines = (btn.title || '').split('\n').filter(Boolean);
+        notesData[card.dataset.id] = lines.map(function (l) {
+          const i = l.indexOf(' \u00b7 ');
+          return { time: l.slice(0, i), text: l.slice(i + 3) };
+        });
+      });
 
       // ---- Walk-in pickup queue ----
       const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
