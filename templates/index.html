@@ -1153,10 +1153,7 @@
       <div class="tl-head" style="grid-template-columns: {{ tl_cols }};">
         <div class="th time-col">시간<span class="en">Time</span></div>
         {% for col in columns %}
-          <div class="th col-{{ loop.index }}">
-            {% if loop.index <= 5 %}<span class="th-suffix">COUNTER</span> <span class="th-num">{{ loop.index }}</span>
-            {% else %}<span class="th-suffix">{{ col }}</span>{% endif %}
-          </div>
+          <div class="th col-{{ loop.index }}">{{ col }}</div>
         {% endfor %}
       </div>
       <div class="timeline" style="grid-template-columns: {{ tl_cols }};">
@@ -1214,7 +1211,7 @@
         {% set col_idx = loop.index %}
         <section class="counter-section col-{{ col_idx }}" id="counter-{{ col_idx }}">
           <div class="section-head">
-            <h2>{% if col_idx <= 5 %}<span class="th-suffix">COUNTER</span> <span class="th-num">{{ col_idx }}</span>{% else %}{{ col }}{% endif %}</h2>
+            <h2>{{ col }}</h2>
           </div>
           <div class="cards">
             {% if split.am %}
