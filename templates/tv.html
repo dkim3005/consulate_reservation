@@ -79,8 +79,23 @@
     .topbar img:active { transform: scale(0.95); }
     .topbar .ko { font-size: 26px; font-weight: 700; }
     .topbar .en { font-size: 14px; color: var(--text-3); margin-top: 2px; }
+    .topbar .page-title {
+      margin: 0 auto;
+      text-align: center;
+    }
+    .topbar .page-title .t-ko {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .topbar .page-title .t-en {
+      font-size: 14px;
+      color: var(--text-3);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
     .topbar .clock {
-      margin-left: auto;
       text-align: right;
     }
     .topbar .clock .time { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -322,6 +337,10 @@
       <div class="ko">주토론토 대한민국 총영사관</div>
       <div class="en">Consulate General of the Republic of Korea in Toronto</div>
     </div>
+    <div class="page-title">
+      <div class="t-ko">민원 대기 현황</div>
+      <div class="t-en">Queue Status</div>
+    </div>
     <div class="clock">
       <div class="time" id="clock-time">--:--</div>
       <div class="date" id="clock-date"></div>
@@ -420,10 +439,15 @@
 
       const announcer = new Audio();
 
-      // ---- "Ding-dong" chime (synthesized — no audio file needed) ----
+      // ---- "Ding-dong" chime ----
+      // Primary: professional sound file (/static/chime.mp3, Mixkit free
+      // license). Fallback: synthesized 3-note chime via WebAudio.
+      const chimeAudio = new Audio('/static/chime.mp3');
+      chimeAudio.preload = 'auto';
       let chimeCtx = null;
-      function playChime(done) {
-        if (!audioUnlocked) { done(); return; }
+      const CHIME_MAX_MS = 3000;  // don't let a long tail delay the voice
+
+      function synthChime(done) {
         try {
           chimeCtx = chimeCtx || new (window.AudioContext || window.webkitAudioContext)();
           if (chimeCtx.state === 'suspended') chimeCtx.resume();
@@ -440,12 +464,27 @@
             o.start(now + t0);
             o.stop(now + t0 + dur + 0.05);
           }
-          // Bank-style 3-note chime: 띵-동-댕 (C6 → E6 → G5), longer & crisper
-          tone(1046.5, 0,    0.55);  // C6
-          tone(1318.5, 0.42, 0.55);  // E6
-          tone(784.0,  0.84, 0.95);  // G5 (longer tail)
+          tone(1046.5, 0,    0.55);
+          tone(1318.5, 0.42, 0.55);
+          tone(784.0,  0.84, 0.95);
           setTimeout(done, 1900);
         } catch (e) { done(); }
+      }
+
+      function playChime(done) {
+        if (!audioUnlocked) { done(); return; }
+        let finished = false;
+        const finish = function () {
+          if (finished) return;
+          finished = true;
+          done();
+        };
+        chimeAudio.onended = finish;
+        setTimeout(finish, CHIME_MAX_MS);
+        chimeAudio.currentTime = 0;
+        chimeAudio.play().catch(function () {
+          if (!finished) { finished = true; synthChime(done); }
+        });
       }
 
       // done() fires when the announcement (PLAY_COUNT plays) actually
