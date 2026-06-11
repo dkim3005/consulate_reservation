@@ -95,7 +95,14 @@ def require_session_api(
 # ---------- Date / passcode helpers ----------
 
 def _target_date(now_local: datetime) -> date:
-    """Once business closes (BUSINESS_END), roll the dashboard to next day's list."""
+    """Once business closes (BUSINESS_END), roll the dashboard to next day's list.
+
+    Debug: set FORCE_TARGET_DATE=YYYY-MM-DD in the environment to pin the
+    dashboard to a specific date (local previews of past days)."""
+    import os
+    forced = os.getenv("FORCE_TARGET_DATE")
+    if forced:
+        return date.fromisoformat(forced)
     cur = now_local.hour * 60 + now_local.minute
     if cur >= _to_min(BUSINESS_END):
         return (now_local + timedelta(days=1)).date()
