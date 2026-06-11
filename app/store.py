@@ -46,7 +46,7 @@ def _ensure_today(data: dict, target: date) -> dict:
     iso = target.isoformat()
     if data.get("date") != iso:
         return {"date": iso, "passcode": _generate_passcode(), "states": {},
-                "walkins": [], "walkin_seq": 0, "walkin_seq_w": 0, "notes": {}}
+                "walkins": [], "walkin_seq": 0, "walkin_seq_w": 0, "notes": {}, "note_seq": 0}
     if "passcode" not in data or not data["passcode"]:
         data["passcode"] = _generate_passcode()
     if "states" not in data:
@@ -58,6 +58,13 @@ def _ensure_today(data: dict, target: date) -> dict:
         data["walkin_seq_w"] = 0
     if "notes" not in data:
         data["notes"] = {}
+    if "note_seq" not in data:
+        data["note_seq"] = 0
+        for lst in data["notes"].values():   # migrate id-less notes
+            for n in lst:
+                if "id" not in n:
+                    data["note_seq"] += 1
+                    n["id"] = data["note_seq"]
     for w in data["walkins"]:  # migrate pre-uid entries
         w.setdefault("prefix", "P")
         w.setdefault("uid", f"{w['prefix']}-{w['num']}")
@@ -102,10 +109,27 @@ def add_note(target: date, appt_id: str, text: str, time_label: str) -> dict:
         raise ValueError("note text is empty")
     with _lock:
         data = _ensure_today(_read(), target)
-        note = {"text": text, "time": time_label}
+        data["note_seq"] += 1
+        note = {"id": data["note_seq"], "text": text, "time": time_label}
         data["notes"].setdefault(appt_id, []).append(note)
         _write(data)
         return note
+
+
+def delete_note(target: date, appt_id: str, note_id: int) -> bool:
+    with _lock:
+        data = _ensure_today(_read(), target)
+        lst = data["notes"].get(appt_id, [])
+        before = len(lst)
+        lst = [n for n in lst if n.get("id") != note_id]
+        if len(lst) == before:
+            return False
+        if lst:
+            data["notes"][appt_id] = lst
+        else:
+            data["notes"].pop(appt_id, None)
+        _write(data)
+        return True
 
 
 def get_notes(target: date) -> dict[str, list[dict]]:

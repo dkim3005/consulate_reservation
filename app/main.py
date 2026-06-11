@@ -485,6 +485,14 @@ async def create_note(req: NoteCreate, role: str = Depends(require_session_api))
     return JSONResponse({"ok": True, "note": note})
 
 
+@app.delete("/api/note/{appt_id}/{note_id}")
+async def remove_note(appt_id: str, note_id: int, role: str = Depends(require_session_api)) -> JSONResponse:
+    target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
+    if not store.delete_note(target, appt_id, note_id):
+        raise HTTPException(status_code=404, detail="note not found")
+    return JSONResponse({"ok": True})
+
+
 # ---------- Walk-in pickup queue ----------
 
 class WalkinCreate(BaseModel):
