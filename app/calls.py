@@ -51,12 +51,6 @@ GOOGLE_TTS_VOICE_KO = "ko-KR-Chirp3-HD-Zephyr"
 GOOGLE_TTS_VOICE_EN = "en-US-Chirp3-HD-Zephyr"
 GOOGLE_TTS_RATE = 0.9  # slightly slower for lobby clarity
 
-# Korean name announcements are SPLICED like real Korean queue machines:
-# each syllable is synthesized standalone (flat, citation-form pitch — sounds
-# mechanical/clear), cached per syllable, then joined with fixed silence and a
-# naturally-spoken cached tail ("님, N번 창구로 오세요").
-SPLICE_GAP_MS = 180
-GOOGLE_TTS_TAIL_RATE = 0.95
 GOOGLE_TTS_VOLUME_GAIN_DB = 4.0  # lobby speakers — louder than default
 
 # OpenAI TTS (fallback #1) — gpt-4o-mini-tts is the cheapest TTS model.
@@ -301,108 +295,6 @@ async def _google_tts(text: str, lang: str, path: Path) -> bool:
         return False
 
 
-async def _google_tts_wav(text: str, rate: float) -> bytes | None:
-    """Synthesize Korean text to LINEAR16 WAV bytes (for splicing)."""
-    try:
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"https://texttospeech.googleapis.com/v1/text:synthesize?key={GOOGLE_TTS_API_KEY}",
-                json={
-                    "input": {"text": text},
-                    "voice": {"languageCode": "ko-KR", "name": GOOGLE_TTS_VOICE_KO},
-                    "audioConfig": {"audioEncoding": "LINEAR16", "speakingRate": rate,
-                                    "volumeGainDb": GOOGLE_TTS_VOLUME_GAIN_DB},
-                },
-                timeout=20.0,
-            )
-        if r.status_code != 200:
-            log.warning("google tts wav HTTP %s for %r: %s", r.status_code, text, r.text[:200])
-            return None
-        import base64
-        return base64.b64decode(r.json()["audioContent"])
-    except Exception as e:  # noqa: BLE001
-        log.warning("google tts wav failed for %r: %s", text, e)
-        return None
-
-
-async def _cached_wav(kind: str, text: str, rate: float) -> bytes | None:
-    """Disk-cached WAV piece (syllable or tail). Syllables are reused across
-    every name that contains them; tails only vary by counter (5 total)."""
-    digest = hashlib.sha1(
-        f"{kind}|{GOOGLE_TTS_VOICE_KO}|{rate}|{GOOGLE_TTS_VOLUME_GAIN_DB}|{text}".encode()
-    ).hexdigest()[:20]
-    path = TTS_DIR / f"{kind}_{digest}.wav"
-    if path.exists():
-        return path.read_bytes()
-    data = await _google_tts_wav(text, rate)
-    if data is None:
-        return None
-    TTS_DIR.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-    return data
-
-
-def _concat_wavs(parts: list[bytes], gap_ms: int) -> bytes:
-    import io
-    import wave
-    with wave.open(io.BytesIO(parts[0]), "rb") as w0:
-        params = w0.getparams()
-    gap = b"\x00" * (
-        int(params.framerate * gap_ms / 1000) * params.sampwidth * params.nchannels
-    )
-    out = io.BytesIO()
-    with wave.open(out, "wb") as wout:
-        wout.setparams(params)
-        for i, part in enumerate(parts):
-            with wave.open(io.BytesIO(part), "rb") as w:
-                wout.writeframes(w.readframes(w.getnframes()))
-            if i < len(parts) - 1:
-                wout.writeframes(gap)
-    return out.getvalue()
-
-
-def _splice_eligible(hangul_name: str) -> str | None:
-    compact = hangul_name.replace(" ", "")
-    if 2 <= len(compact) <= 4 and all("가" <= c <= "힣" for c in compact):
-        return compact
-    return None
-
-
-async def _spliced_announcement(hangul_name: str, counter: int) -> str | None:
-    """Build '김. 태. 윤. + 님, N번 창구로 오세요' from per-syllable pieces."""
-    if not GOOGLE_TTS_API_KEY:
-        return None
-    compact = _splice_eligible(hangul_name)
-    if compact is None:
-        return None
-
-    digest = hashlib.sha1(
-        f"splice|{GOOGLE_TTS_VOICE_KO}|{GOOGLE_TTS_RATE}|{GOOGLE_TTS_TAIL_RATE}|{GOOGLE_TTS_VOLUME_GAIN_DB}|"
-        f"{SPLICE_GAP_MS}|{compact}|{counter}".encode()
-    ).hexdigest()[:20]
-    final_path = TTS_DIR / f"{digest}.wav"
-    if final_path.exists():
-        return f"/static/tts/{final_path.name}"
-
-    parts: list[bytes] = []
-    for syl in compact:
-        piece = await _cached_wav("syl", syl, GOOGLE_TTS_RATE)
-        if piece is None:
-            return None
-        parts.append(piece)
-    tail = await _cached_wav("tail", f"님, {counter}번 창구로 오세요.", GOOGLE_TTS_TAIL_RATE)
-    if tail is None:
-        return None
-    parts.append(tail)
-
-    try:
-        final_path.write_bytes(_concat_wavs(parts, SPLICE_GAP_MS))
-    except Exception as e:  # noqa: BLE001
-        log.warning("wav splice failed for %r: %s", hangul_name, e)
-        return None
-    return f"/static/tts/{final_path.name}"
-
-
 async def _openai_tts(text: str, lang: str, path: Path) -> bool:
     instructions = OPENAI_TTS_INSTRUCTIONS_KO if lang == "ko" else OPENAI_TTS_INSTRUCTIONS_EN
     try:
@@ -482,18 +374,17 @@ def _spell_hangul_name(name: str) -> str:
     return name
 
 
-async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str, str | None]:
-    """Return (lang, display_name, announcement_text, splice_hangul).
+async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]:
+    """Return (lang, display_name, announcement_text).
 
-    splice_hangul is set for Korean names eligible for queue-machine-style
-    per-syllable splicing; the text remains as a fallback for browser TTS.
+    Korean names are spelled syllable-by-syllable with periods in the text
+    ("김. 태. 윤. 님, ...") so the TTS reads them distinctly.
     Latin-script names are classified by DeepSeek (cached): Korean → Hangul +
     Korean announcement, everything else → English.
     """
     name = name.strip()
     if _has_hangul(name):
-        return ("ko", name, f"{_spell_hangul_name(name)} 님, {counter}번 창구로 오세요.",
-                _splice_eligible(name))
+        return "ko", name, f"{_spell_hangul_name(name)} 님, {counter}번 창구로 오세요."
 
     if _llm_endpoint() is not None:
         hangul = await _romanized_to_hangul(name)
@@ -503,17 +394,16 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str,
         if not hangul and has_strong_korean_surname(name):
             hangul = await _romanized_to_hangul(name, force=True)
         if hangul:
-            return ("ko", name, f"{_spell_hangul_name(hangul)} 님, {counter}번 창구로 오세요.",
-                    _splice_eligible(hangul))
+            return "ko", name, f"{_spell_hangul_name(hangul)} 님, {counter}번 창구로 오세요."
         if has_strong_korean_surname(name):
             # LLM unreachable entirely — still announce in Korean voice
-            return "ko", name, f"{name} 님, {counter}번 창구로 오세요.", None
-        return "en", name, f"{name}, please proceed to counter number {counter}.", None
+            return "ko", name, f"{name} 님, {counter}번 창구로 오세요."
+        return "en", name, f"{name}, please proceed to counter number {counter}."
 
     # No LLM available — fall back to the surname table
     if looks_korean_romanized(name):
-        return "ko", name, f"{name} 님, {counter}번 창구로 오세요.", None
-    return "en", name, f"{name}, please proceed to counter number {counter}.", None
+        return "ko", name, f"{name} 님, {counter}번 창구로 오세요."
+    return "en", name, f"{name}, please proceed to counter number {counter}."
 
 
 # ---------- queue ----------
@@ -539,7 +429,7 @@ async def enqueue(appt_id: str, name: str, counter: int) -> tuple[bool, str]:
 
     global _seq
     _seq += 1
-    lang, display, text, splice = await _prepare_announcement(name, counter)
+    lang, display, text = await _prepare_announcement(name, counter)
     call = {
         "id": _seq,
         "appt_id": appt_id,
@@ -548,7 +438,6 @@ async def enqueue(appt_id: str, name: str, counter: int) -> tuple[bool, str]:
         "counter": counter,
         "lang": lang,
         "text": text,
-        "splice": splice,
         "ts": now,
     }
     await _ensure_queue().put(call)
@@ -611,12 +500,7 @@ async def _worker() -> None:
     q = _ensure_queue()
     while True:
         call = await q.get()
-        audio = None
-        if call.get("splice"):
-            audio = await _spliced_announcement(call["splice"], call["counter"])
-        if audio is None:
-            audio = await _ensure_tts(call["text"], call["lang"])
-        call["audio_url"] = audio
+        call["audio_url"] = await _ensure_tts(call["text"], call["lang"])
         call["started_at"] = time.time()
         _current = call
         await asyncio.sleep(CALL_SLOT_SECONDS)
