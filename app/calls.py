@@ -57,6 +57,7 @@ GOOGLE_TTS_RATE = 0.9  # slightly slower for lobby clarity
 # naturally-spoken cached tail ("님, N번 창구로 오세요").
 SPLICE_GAP_MS = 180
 GOOGLE_TTS_TAIL_RATE = 0.95
+GOOGLE_TTS_VOLUME_GAIN_DB = 4.0  # lobby speakers — louder than default
 
 # OpenAI TTS (fallback #1) — gpt-4o-mini-tts is the cheapest TTS model.
 OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
@@ -284,7 +285,8 @@ async def _google_tts(text: str, lang: str, path: Path) -> bool:
                 json={
                     "input": {"text": text},
                     "voice": {"languageCode": lang_code, "name": voice},
-                    "audioConfig": {"audioEncoding": "MP3", "speakingRate": GOOGLE_TTS_RATE},
+                    "audioConfig": {"audioEncoding": "MP3", "speakingRate": GOOGLE_TTS_RATE,
+                                    "volumeGainDb": GOOGLE_TTS_VOLUME_GAIN_DB},
                 },
                 timeout=20.0,
             )
@@ -308,7 +310,8 @@ async def _google_tts_wav(text: str, rate: float) -> bytes | None:
                 json={
                     "input": {"text": text},
                     "voice": {"languageCode": "ko-KR", "name": GOOGLE_TTS_VOICE_KO},
-                    "audioConfig": {"audioEncoding": "LINEAR16", "speakingRate": rate},
+                    "audioConfig": {"audioEncoding": "LINEAR16", "speakingRate": rate,
+                                    "volumeGainDb": GOOGLE_TTS_VOLUME_GAIN_DB},
                 },
                 timeout=20.0,
             )
@@ -326,7 +329,7 @@ async def _cached_wav(kind: str, text: str, rate: float) -> bytes | None:
     """Disk-cached WAV piece (syllable or tail). Syllables are reused across
     every name that contains them; tails only vary by counter (5 total)."""
     digest = hashlib.sha1(
-        f"{kind}|{GOOGLE_TTS_VOICE_KO}|{rate}|{text}".encode()
+        f"{kind}|{GOOGLE_TTS_VOICE_KO}|{rate}|{GOOGLE_TTS_VOLUME_GAIN_DB}|{text}".encode()
     ).hexdigest()[:20]
     path = TTS_DIR / f"{kind}_{digest}.wav"
     if path.exists():
@@ -374,7 +377,7 @@ async def _spliced_announcement(hangul_name: str, counter: int) -> str | None:
         return None
 
     digest = hashlib.sha1(
-        f"splice|{GOOGLE_TTS_VOICE_KO}|{GOOGLE_TTS_RATE}|{GOOGLE_TTS_TAIL_RATE}|"
+        f"splice|{GOOGLE_TTS_VOICE_KO}|{GOOGLE_TTS_RATE}|{GOOGLE_TTS_TAIL_RATE}|{GOOGLE_TTS_VOLUME_GAIN_DB}|"
         f"{SPLICE_GAP_MS}|{compact}|{counter}".encode()
     ).hexdigest()[:20]
     final_path = TTS_DIR / f"{digest}.wav"
@@ -445,7 +448,8 @@ async def _ensure_tts(text: str, lang: str) -> str | None:
     Engine identity is part of the cache hash.
     """
     if GOOGLE_TTS_API_KEY:
-        engine = f"google:{GOOGLE_TTS_VOICE_KO if lang == 'ko' else GOOGLE_TTS_VOICE_EN}:{GOOGLE_TTS_RATE}"
+        engine = (f"google:{GOOGLE_TTS_VOICE_KO if lang == 'ko' else GOOGLE_TTS_VOICE_EN}"
+                  f":{GOOGLE_TTS_RATE}:{GOOGLE_TTS_VOLUME_GAIN_DB}")
     elif OPENAI_API_KEY:
         instructions = OPENAI_TTS_INSTRUCTIONS_KO if lang == "ko" else OPENAI_TTS_INSTRUCTIONS_EN
         engine = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}:{instructions}"
