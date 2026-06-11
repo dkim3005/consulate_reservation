@@ -56,7 +56,7 @@ OPENAI_TTS_VOICE = "nova"
 OPENAI_TTS_INSTRUCTIONS_KO = (
     "한국 은행·병원에서 쓰이는 전형적인 순번 안내방송 음성입니다. "
     "20대 한국인 여성 안내원의 높고 맑은 톤으로, 한국 안내방송 특유의 리듬 — "
-    "음절을 또박또박 끊어 읽고 '~모시겠습니다'의 끝을 부드럽게 내리며 — 말하세요. "
+    "음절을 또박또박 끊어 읽고 문장 끝을 부드럽게 내리며 — 말하세요. "
     "밝고 상냥하고 공손하게, 노래하듯 약간의 억양을 살려서. 실제 한국 매장 안내방송처럼."
 )
 OPENAI_TTS_INSTRUCTIONS_EN = (
@@ -366,7 +366,7 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
     """
     name = name.strip()
     if _has_hangul(name):
-        return "ko", name, f"{name} 민원인님, {counter}번 창구로 모시겠습니다."
+        return "ko", name, f"{name} 민원인님, {counter}번 창구로 오세요."
 
     if _llm_endpoint() is not None:
         hangul = await _romanized_to_hangul(name)
@@ -376,15 +376,15 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
         if not hangul and has_strong_korean_surname(name):
             hangul = await _romanized_to_hangul(name, force=True)
         if hangul:
-            return "ko", name, f"{hangul} 민원인님, {counter}번 창구로 모시겠습니다."
+            return "ko", name, f"{hangul} 민원인님, {counter}번 창구로 오세요."
         if has_strong_korean_surname(name):
             # LLM unreachable entirely — still announce in Korean voice
-            return "ko", name, f"{name} 민원인님, {counter}번 창구로 모시겠습니다."
+            return "ko", name, f"{name} 민원인님, {counter}번 창구로 오세요."
         return "en", name, f"{name}, please proceed to counter number {counter}."
 
     # No LLM available — fall back to the surname table
     if looks_korean_romanized(name):
-        return "ko", name, f"{name} 민원인님, {counter}번 창구로 모시겠습니다."
+        return "ko", name, f"{name} 민원인님, {counter}번 창구로 오세요."
     return "en", name, f"{name}, please proceed to counter number {counter}."
 
 
