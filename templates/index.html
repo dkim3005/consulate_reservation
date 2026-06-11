@@ -1128,7 +1128,7 @@
               <span class="auto-badge"></span>
             </div>
             <div class="name-ko">{{ c.name_ko or '—' }}</div>
-            <div class="name-en">{{ c.name_en or '—' }}</div>
+            {% if c.name_en and c.name_en != c.name_ko %}<div class="name-en">{{ c.name_en }}</div>{% endif %}
             {% if c.title_ko %}<div class="title-ko">{{ c.title_ko }}</div>{% endif %}
             {% if c.title_en %}<div class="title-en">{{ c.title_en }}</div>{% endif %}
           </div>
@@ -1169,7 +1169,7 @@
                     <span class="auto-badge"></span>
                   </div>
                   <div class="name-ko">{{ a.name_ko or '—' }}</div>
-                  <div class="name-en">{{ a.name_en or '—' }}</div>
+                  {% if a.name_en and a.name_en != a.name_ko %}<div class="name-en">{{ a.name_en }}</div>{% endif %}
                   {% if a.title_ko %}<div class="title-ko">{{ a.title_ko }}</div>{% endif %}
                   {% if a.title_en %}<div class="title-en">{{ a.title_en }}</div>{% endif %}
                 </div>
@@ -1196,7 +1196,7 @@
                     <span class="auto-badge"></span>
                   </div>
                   <div class="name-ko">{{ a.name_ko or '—' }}</div>
-                  <div class="name-en">{{ a.name_en or '—' }}</div>
+                  {% if a.name_en and a.name_en != a.name_ko %}<div class="name-en">{{ a.name_en }}</div>{% endif %}
                   {% if a.title_ko %}<div class="title-ko">{{ a.title_ko }}</div>{% endif %}
                   {% if a.title_en %}<div class="title-en">{{ a.title_en }}</div>{% endif %}
                 </div>

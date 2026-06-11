@@ -239,6 +239,19 @@ async def _build_payload(role: str) -> dict:
     grouped_raw = group_by_counter(appts)
     grouped = {c: [_shape(a, states) for a in items] for c, items in grouped_raw.items()}
 
+    # Koreans who booked with a romanized name (e.g. "Kim Shihu"): show the
+    # LLM-verified Hangul (김시후) as the primary line, romanized as secondary —
+    # same look as native-Hangul bookings. Conversions come from the cache the
+    # warm loop pre-populates; no LLM call happens here.
+    hangul_map = calls.get_cached_hangul_map()
+    for items in grouped.values():
+        for a in items:
+            if a["name_ko"] and not _has_hangul(a["name_ko"]):
+                hangul = hangul_map.get(a["name_ko"].strip().lower())
+                if hangul:
+                    a["name_en"] = a["name_ko"]
+                    a["name_ko"] = hangul
+
     columns = list(COUNTERS)
     if grouped.get("기타 / Other"):
         columns.append("기타 / Other")
@@ -292,7 +305,14 @@ async def _warm_loop() -> None:
             await calls.get_daily_quote(target.isoformat())  # prefetch, cached
             target_changed = last_target is not None and target != last_target
             if last_target is None or target_changed or _in_business_hours(now_local):
-                await fetch_appointments_for_date(target)
+                appts = await fetch_appointments_for_date(target)
+                # pre-convert romanized Korean names → Hangul for display
+                names = [
+                    f"{(a.get('client_first_name') or '').strip()} "
+                    f"{(a.get('client_last_name') or '').strip()}".strip()
+                    for a in appts
+                ]
+                await calls.prewarm_name_conversions(names)
             last_target = target
         except Exception as e:  # noqa: BLE001
             log.warning("cache warm failed: %s", e)

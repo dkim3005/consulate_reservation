@@ -479,6 +479,37 @@ async def enqueue_custom(dedupe_key: str, display_name: str, text: str,
     return True, ""
 
 
+def get_cached_hangul_map() -> dict[str, str]:
+    """Lowercased romanized name → Hangul, from the verified LLM cache."""
+    cache = _load_name_cache()
+    prefix = NAME_CACHE_VERSION + ":"
+    return {
+        k[len(prefix):]: v
+        for k, v in cache.items()
+        if k.startswith(prefix) and v
+    }
+
+
+async def prewarm_name_conversions(names: list[str]) -> None:
+    """Pre-convert romanized Korean names so dashboards can show Hangul.
+
+    Cached names are free; only unseen names hit the LLM. Names without any
+    Korean-surname signal are skipped entirely (no cost for foreign visitors).
+    """
+    seen: set[str] = set()
+    for n in names:
+        n = (n or "").strip()
+        key = n.lower()
+        if not n or _has_hangul(n) or key in seen:
+            continue
+        seen.add(key)
+        if looks_korean_romanized(n):
+            try:
+                await _romanized_to_hangul(n)
+            except Exception:  # noqa: BLE001
+                pass
+
+
 def clear_recent() -> None:
     """Wipe the recently-called list (used by the TV's bell button)."""
     _recent.clear()
