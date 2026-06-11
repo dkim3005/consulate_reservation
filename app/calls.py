@@ -369,9 +369,12 @@ async def _ensure_tts(text: str, lang: str) -> str | None:
         # google gets retried first on every new request, so one transient
         # failure can no longer lock a name to a fallback voice
         if path.exists():
+            log.warning("tts cache hit [%s] %r", engine.split(":")[0], text[:40])
             return f"/static/tts/{path.name}"
         if await fn(text, lang, path):
+            log.warning("tts generated [%s] %r", engine.split(":")[0], text[:40])
             return f"/static/tts/{path.name}"
+    log.error("tts ALL ENGINES FAILED for %r — TV will fall back to device voice", text[:40])
     return None
 
 
