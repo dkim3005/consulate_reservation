@@ -262,7 +262,9 @@ async def _build_payload(role: str) -> dict:
             appts = await fetch_appointments_for_date(target)
 
     states = store.get_states(target)
-    notes_map = store.get_notes(target)
+    # Notes are reception/counter-staff material — never sent to the
+    # security (staff/passcode) role.
+    notes_map = store.get_notes(target) if role == auth.ROLE_ADMIN else {}
     grouped_raw = group_by_counter(appts)
     grouped = {c: [_shape(a, states) for a in items] for c, items in grouped_raw.items()}
     for items in grouped.values():
@@ -475,6 +477,8 @@ class NoteCreate(BaseModel):
 
 @app.post("/api/note")
 async def create_note(req: NoteCreate, role: str = Depends(require_session_api)) -> JSONResponse:
+    if role != auth.ROLE_ADMIN:
+        raise HTTPException(status_code=403, detail="notes are staff-only")
     tz = ZoneInfo(LOCAL_TZ)
     now_local = datetime.now(tz)
     target = _target_date(now_local)
@@ -487,6 +491,8 @@ async def create_note(req: NoteCreate, role: str = Depends(require_session_api))
 
 @app.delete("/api/note/{appt_id}/{note_id}")
 async def remove_note(appt_id: str, note_id: int, role: str = Depends(require_session_api)) -> JSONResponse:
+    if role != auth.ROLE_ADMIN:
+        raise HTTPException(status_code=403, detail="notes are staff-only")
     target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
     if not store.delete_note(target, appt_id, note_id):
         raise HTTPException(status_code=404, detail="note not found")

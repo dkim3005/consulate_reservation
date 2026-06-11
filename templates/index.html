@@ -1249,8 +1249,8 @@
                data-id="{{ c.id }}" data-start-iso="{{ c.start_iso }}" data-counter="{{ c.col }}" data-name="{{ c.name_ko or c.name_en }}">
             <div class="top-row">
               <span class="duration">{{ c.time_range }}</span>
-              <button class="note-btn {% if c.notes %}has-note{% endif %}" type="button"
-                      title="{% for n in c.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not c.notes %}메모 추가 · Add note{% endif %}">📝{% if c.notes %} {{ c.notes|length }}{% endif %}</button>
+              {% if is_admin %}<button class="note-btn {% if c.notes %}has-note{% endif %}" type="button"
+                      title="{% for n in c.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not c.notes %}메모 추가 · Add note{% endif %}">📝{% if c.notes %} {{ c.notes|length }}{% endif %}</button>{% endif %}
               {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
               <span class="state-badge">{% if c.attendance == 'waiting' %}⏳{% elif c.attendance == 'active' %}▶{% elif c.attendance == 'done' %}✓{% elif c.attendance == 'noshow' %}✗{% endif %}</span>
               <span class="auto-badge"></span>
@@ -1292,8 +1292,8 @@
                 <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}" data-start-iso="{{ a.start_iso }}" data-counter="{{ col_idx }}" data-name="{{ a.name_ko or a.name_en }}">
                   <div class="top-row">
                     <span class="duration">{{ a.time_range }}</span>
-                    <button class="note-btn {% if a.notes %}has-note{% endif %}" type="button"
-                            title="{% for n in a.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not a.notes %}메모 추가 · Add note{% endif %}">📝{% if a.notes %} {{ a.notes|length }}{% endif %}</button>
+                    {% if is_admin %}<button class="note-btn {% if a.notes %}has-note{% endif %}" type="button"
+                            title="{% for n in a.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not a.notes %}메모 추가 · Add note{% endif %}">📝{% if a.notes %} {{ a.notes|length }}{% endif %}</button>{% endif %}
                     {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
                     <span class="state-badge">{% if a.attendance == 'waiting' %}⏳{% elif a.attendance == 'active' %}▶{% elif a.attendance == 'done' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
                     <span class="auto-badge"></span>
@@ -1321,8 +1321,8 @@
                 <div class="card col-{{ col_idx }} {% if a.attendance %}state-{{ a.attendance }}{% endif %}" data-id="{{ a.id }}" data-start-iso="{{ a.start_iso }}" data-counter="{{ col_idx }}" data-name="{{ a.name_ko or a.name_en }}">
                   <div class="top-row">
                     <span class="duration">{{ a.time_range }}</span>
-                    <button class="note-btn {% if a.notes %}has-note{% endif %}" type="button"
-                            title="{% for n in a.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not a.notes %}메모 추가 · Add note{% endif %}">📝{% if a.notes %} {{ a.notes|length }}{% endif %}</button>
+                    {% if is_admin %}<button class="note-btn {% if a.notes %}has-note{% endif %}" type="button"
+                            title="{% for n in a.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not a.notes %}메모 추가 · Add note{% endif %}">📝{% if a.notes %} {{ a.notes|length }}{% endif %}</button>{% endif %}
                     {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
                     <span class="state-badge">{% if a.attendance == 'waiting' %}⏳{% elif a.attendance == 'active' %}▶{% elif a.attendance == 'done' %}✓{% elif a.attendance == 'noshow' %}✗{% endif %}</span>
                     <span class="auto-badge"></span>
@@ -1371,6 +1371,7 @@
 
   <div class="toast-stack" id="toast-stack"></div>
 
+  {% if is_admin %}
   <div class="call-modal-backdrop" id="note-modal" hidden>
     <div class="call-modal">
       <div class="cm-name" id="note-name">메모</div>
@@ -1383,6 +1384,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <div class="call-modal-backdrop" id="wi-cat-modal" hidden>
     <div class="call-modal">
@@ -1718,6 +1720,7 @@
           }
         } catch (e2) {}
       });
+      if (noteModal) {
       document.getElementById('note-cancel').addEventListener('click', function () {
         noteModal.hidden = true;
       });
@@ -1761,6 +1764,7 @@
           return { time: l.slice(0, i), text: l.slice(i + 3) };
         });
       });
+      }
 
       // ---- Walk-in pickup queue ----
       const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
