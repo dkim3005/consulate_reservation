@@ -582,7 +582,7 @@ async def get_daily_quote(date_iso: str) -> str:
 
 def start_worker() -> None:
     if GOOGLE_TTS_API_KEY:
-        tts = f"google:{GOOGLE_TTS_VOICE_KO}"
+        tts = f"google ko={GOOGLE_TTS_VOICE_KO} en={GOOGLE_TTS_VOICE_EN}"
     elif OPENAI_API_KEY:
         tts = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}"
     else:
