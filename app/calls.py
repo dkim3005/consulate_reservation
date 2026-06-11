@@ -272,27 +272,29 @@ async def _romanized_to_hangul(name: str, force: bool = False) -> str | None:
 async def _google_tts(text: str, lang: str, path: Path) -> bool:
     voice = GOOGLE_TTS_VOICE_KO if lang == "ko" else GOOGLE_TTS_VOICE_EN
     lang_code = "ko-KR" if lang == "ko" else "en-US"
-    try:
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"https://texttospeech.googleapis.com/v1/text:synthesize?key={GOOGLE_TTS_API_KEY}",
-                json={
-                    "input": {"text": text},
-                    "voice": {"languageCode": lang_code, "name": voice},
-                    "audioConfig": {"audioEncoding": "MP3", "speakingRate": GOOGLE_TTS_RATE,
-                                    "volumeGainDb": GOOGLE_TTS_VOLUME_GAIN_DB},
-                },
-                timeout=20.0,
-            )
-        if r.status_code != 200:
-            log.warning("google tts HTTP %s for %r: %s", r.status_code, text, r.text[:200])
-            return False
-        import base64
-        path.write_bytes(base64.b64decode(r.json()["audioContent"]))
-        return True
-    except Exception as e:  # noqa: BLE001
-        log.warning("google tts failed for %r: %s", text, e)
-        return False
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    f"https://texttospeech.googleapis.com/v1/text:synthesize?key={GOOGLE_TTS_API_KEY}",
+                    json={
+                        "input": {"text": text},
+                        "voice": {"languageCode": lang_code, "name": voice},
+                        "audioConfig": {"audioEncoding": "MP3", "speakingRate": GOOGLE_TTS_RATE,
+                                        "volumeGainDb": GOOGLE_TTS_VOLUME_GAIN_DB},
+                    },
+                    timeout=20.0,
+                )
+            if r.status_code == 200:
+                import base64
+                path.write_bytes(base64.b64decode(r.json()["audioContent"]))
+                return True
+            log.warning("google tts HTTP %s (attempt %d) for %r: %s",
+                        r.status_code, attempt + 1, text, r.text[:150])
+        except Exception as e:  # noqa: BLE001
+            log.warning("google tts failed (attempt %d) for %r: %s", attempt + 1, text, e)
+        await asyncio.sleep(0.6)
+    return False
 
 
 async def _openai_tts(text: str, lang: str, path: Path) -> bool:
@@ -339,38 +341,41 @@ async def _ensure_tts(text: str, lang: str) -> str | None:
     Chain: Google Chirp3-HD → OpenAI gpt-4o-mini-tts → edge-tts.
     Engine identity is part of the cache hash.
     """
+    candidates: list[tuple[str, object]] = []
     if GOOGLE_TTS_API_KEY:
-        engine = (f"google:{GOOGLE_TTS_VOICE_KO if lang == 'ko' else GOOGLE_TTS_VOICE_EN}"
-                  f":{GOOGLE_TTS_RATE}:{GOOGLE_TTS_VOLUME_GAIN_DB}")
-    elif OPENAI_API_KEY:
+        candidates.append((
+            f"google:{GOOGLE_TTS_VOICE_KO if lang == 'ko' else GOOGLE_TTS_VOICE_EN}"
+            f":{GOOGLE_TTS_RATE}:{GOOGLE_TTS_VOLUME_GAIN_DB}",
+            _google_tts,
+        ))
+    if OPENAI_API_KEY:
         instructions = OPENAI_TTS_INSTRUCTIONS_KO if lang == "ko" else OPENAI_TTS_INSTRUCTIONS_EN
-        engine = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}:{instructions}"
-    else:
-        engine = f"edge:{VOICE_KO if lang == 'ko' else VOICE_EN}:{TTS_RATE}"
-    digest = hashlib.sha1(f"{engine}|{lang}|{text}".encode()).hexdigest()[:20]
-    path = TTS_DIR / f"{digest}.mp3"
-    if path.exists():
-        return f"/static/tts/{path.name}"
+        candidates.append((
+            f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}:{instructions}",
+            _openai_tts,
+        ))
+    candidates.append((
+        f"edge:{VOICE_KO if lang == 'ko' else VOICE_EN}:{TTS_RATE}",
+        _edge_tts,
+    ))
 
     TTS_DIR.mkdir(parents=True, exist_ok=True)
-    if GOOGLE_TTS_API_KEY and await _google_tts(text, lang, path):
-        return f"/static/tts/{path.name}"
-    if OPENAI_API_KEY and await _openai_tts(text, lang, path):
-        return f"/static/tts/{path.name}"
-    if await _edge_tts(text, lang, path):
-        return f"/static/tts/{path.name}"
+    for engine, fn in candidates:
+        digest = hashlib.sha1(f"v2|{engine}|{lang}|{text}".encode()).hexdigest()[:20]
+        path = TTS_DIR / f"{digest}.mp3"
+        # cache hit only plays audio that THIS engine actually generated;
+        # google gets retried first on every new request, so one transient
+        # failure can no longer lock a name to a fallback voice
+        if path.exists():
+            return f"/static/tts/{path.name}"
+        if await fn(text, lang, path):
+            return f"/static/tts/{path.name}"
     return None
 
 
 def _spell_hangul_name(name: str) -> str:
-    """Hospital-style syllable separation for spoken Korean names.
-
-    김태윤 → '김 태 윤' (TTS reads each syllable distinctly). Only applied to
-    pure-Hangul names up to 4 syllables; display names are never changed.
-    """
-    compact = name.replace(" ", "")
-    if 2 <= len(compact) <= 4 and all("가" <= c <= "힣" for c in compact):
-        return ". ".join(compact) + "."
+    """Names are read naturally as part of the sentence (no syllable breaking
+    — generative TTS mangles single syllables and hard stops)."""
     return name
 
 
