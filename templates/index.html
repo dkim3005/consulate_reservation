@@ -509,11 +509,14 @@
     }
     .timeline .card {
       z-index: 1;
-      margin: 13px 2px;
+      margin: 6px 2px;
+      /* the global .card rule sets height:100%, which makes grid items
+         ignore margins and overlap the next card — let stretch size it */
+      height: auto;
       overflow: hidden;
       padding: 7px 10px;
       outline: 1px solid var(--border);
-      outline-offset: -1px;   /* draw inside the card, never into neighbours */
+      outline-offset: -1px;
       transition: opacity 0.15s, box-shadow 0.15s, transform 0.05s;
     }
     /* Spotlight: focus the card under the cursor, soften the rest.
