@@ -50,14 +50,16 @@ TTS_RATE = "-10%"  # slightly slower for lobby clarity
 OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
 OPENAI_TTS_VOICE = "nova"
 OPENAI_TTS_INSTRUCTIONS_KO = (
-    "당신은 20~30대 젊은 한국인 여성 아나운서입니다. 공공기관 대기실 안내방송을 합니다. "
-    "밝고 경쾌하고 발랄한 톤으로, 미소 띤 목소리로 말하되 또박또박 명확하게 발음하세요. "
-    "기계적이지 않게, 실제 아나운서처럼 생기 있고 자연스럽게."
+    "당신은 은행 창구 안내방송을 하는 20대 한국인 여성 아나운서입니다. "
+    "은행 순번 안내처럼 높은 톤으로 아주 밝고 경쾌하고 발랄하게, 미소가 들리는 목소리로 말하세요. "
+    "음 높이를 평소보다 한 톤 올리고, 끝을 상냥하게 올리며, 또박또박 명확하게 발음하세요. "
+    "생기 넘치고 환영하는 느낌으로."
 )
 OPENAI_TTS_INSTRUCTIONS_EN = (
-    "You are a cheerful young female announcer in her late 20s at a public office. "
-    "Deliver the waiting-room announcement in a bright, upbeat, smiling tone — "
-    "lively and friendly, yet clearly articulated, like a real human announcer."
+    "You are a perky young female announcer doing bank-style queue announcements. "
+    "Speak in a noticeably higher, very bright and cheerful pitch with an audible smile — "
+    "upbeat and welcoming like a bank lobby announcement, ends lilting upward, "
+    "crisp and clearly articulated."
 )
 
 QUEUE_GAP_SECONDS = 2     # silence between two consecutive calls

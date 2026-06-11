@@ -440,9 +440,11 @@
             o.start(now + t0);
             o.stop(now + t0 + dur + 0.05);
           }
-          tone(880, 0, 0.5);        // 띵 (A5)
-          tone(659.25, 0.38, 0.7);  // 동 (E5)
-          setTimeout(done, 1200);
+          // Bank-style 3-note chime: 띵-동-댕 (C6 → E6 → G5), longer & crisper
+          tone(1046.5, 0,    0.55);  // C6
+          tone(1318.5, 0.42, 0.55);  // E6
+          tone(784.0,  0.84, 0.95);  // G5 (longer tail)
+          setTimeout(done, 1900);
         } catch (e) { done(); }
       }
 
