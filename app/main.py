@@ -183,32 +183,40 @@ def _build_timeline(grouped: dict[str, list[dict]], columns: list[str]) -> dict 
     hi = ((hi + 29) // 30) * 30
     total_slots = (hi - lo) // TIMELINE_SLOT_MIN
 
-    # vcita allows overlapping/duplicate bookings on one counter. Two passes
-    # keep cards from ever overlapping:
-    #  1) clamp a block's end to the next block's start (keeps time alignment)
-    #  2) sequential push-down — if a block would still land on the previous
-    #     one (e.g. identical start times), it is placed directly below it.
+    # vcita allows overlapping/duplicate bookings on one counter. Calendar-style
+    # lanes: overlapping blocks share the column side-by-side (each lane gets
+    # an equal slice of the column width), keeping true time positions.
     by_col: dict[int, list[dict]] = {}
     for it in items:
         by_col.setdefault(it["col"], []).append(it)
-    max_row_end = 0
     for col_items in by_col.values():
-        col_items.sort(key=lambda x: (x["_s"], x["_e"]))
-        for cur, nxt in zip(col_items, col_items[1:]):
-            if cur["_e"] > nxt["_s"]:
-                cur["_e"] = max(nxt["_s"], cur["_s"] + TIMELINE_SLOT_MIN)
-        prev_end_row = 0
+        col_items.sort(key=lambda x: (x["_s"], -(x["_e"] - x["_s"])))
+        # greedy lane assignment
+        lane_ends: list[int] = []  # end minute of the last block in each lane
+        clusters: list[list[dict]] = []
+        cluster_end = -1
         for it in col_items:
-            row = (it["_s"] - lo) // TIMELINE_SLOT_MIN + 1
-            span = max((it["_e"] - it["_s"]) // TIMELINE_SLOT_MIN, 1)
-            if row < prev_end_row:
-                row = prev_end_row
-            it["row"] = row
-            it["span"] = span
-            prev_end_row = row + span
-            max_row_end = max(max_row_end, prev_end_row)
+            if it["_s"] >= cluster_end or not clusters:
+                clusters.append([])
+                lane_ends = []
+            clusters[-1].append(it)
+            for li, end in enumerate(lane_ends):
+                if it["_s"] >= end:
+                    it["lane"] = li
+                    lane_ends[li] = it["_e"]
+                    break
+            else:
+                it["lane"] = len(lane_ends)
+                lane_ends.append(it["_e"])
+            cluster_end = max(cluster_end, it["_e"])
+        for cluster in clusters:
+            lanes = max(it["lane"] for it in cluster) + 1
+            for it in cluster:
+                it["lanes"] = lanes
+        for it in col_items:
+            it["row"] = (it["_s"] - lo) // TIMELINE_SLOT_MIN + 1
+            it["span"] = max((it["_e"] - it["_s"]) // TIMELINE_SLOT_MIN, 1)
             del it["_s"], it["_e"]
-    total_slots = max(total_slots, max_row_end - 1)
 
     labels = [
         {"row": (m - lo) // TIMELINE_SLOT_MIN + 1, "text": f"{m // 60:02d}:{m % 60:02d}"}

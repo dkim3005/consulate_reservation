@@ -1119,7 +1119,7 @@
         {% endif %}
         {% for c in timeline.cards %}
           <div class="card col-{{ c.col }} {% if c.attendance %}state-{{ c.attendance }}{% endif %}"
-               style="grid-row: {{ c.row }} / span {{ c.span }}; grid-column: {{ c.col + 1 }};"
+               style="grid-row: {{ c.row }} / span {{ c.span }}; grid-column: {{ c.col + 1 }};{% if c.lanes and c.lanes > 1 %} width: calc({{ (100 / c.lanes) | round(2) }}% - 3px); margin-left: calc({{ (100 * c.lane / c.lanes) | round(2) }}% + {{ 0 if c.lane == 0 else 3 }}px);{% endif %}"
                data-id="{{ c.id }}" data-start-iso="{{ c.start_iso }}" data-counter="{{ c.col }}" data-name="{{ c.name_ko or c.name_en }}">
             <div class="top-row">
               <span class="duration">{{ c.time_range }}</span>
