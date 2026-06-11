@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -129,8 +130,17 @@ def _shape(appt: dict, states: dict[str, str]) -> dict:
 
     ko_first = appt.get("client_first_name") or ""
     ko_last = appt.get("client_last_name") or ""
-    name_ko = f"{ko_first} {ko_last}".strip()
-    name_en = romanize_full(ko_first, ko_last)
+    raw = f"{ko_first} {ko_last}".strip()
+    # Visitors sometimes enter both scripts in one field ("김시후 Kim Shihu"):
+    # keep the Hangul as the primary name, the Latin part as secondary.
+    hangul_seqs = re.findall(r"[가-힣]+", raw)
+    latin_seqs = re.findall(r"[A-Za-z][A-Za-z.\-']*", raw)
+    if hangul_seqs:
+        name_ko = " ".join(hangul_seqs)
+        name_en = " ".join(latin_seqs) if latin_seqs else romanize_full(ko_first, ko_last)
+    else:
+        name_ko = raw
+        name_en = romanize_full(ko_first, ko_last)
 
     title_ko, title_en = _split_bilingual(appt.get("title"))
 

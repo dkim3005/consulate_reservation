@@ -394,7 +394,9 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
     """
     name = name.strip()
     if _has_hangul(name):
-        return "ko", name, f"{_spell_hangul_name(name)} 님, {counter}번 창구로 오세요."
+        # mixed-script entries ("김시후 Kim Shihu") → speak/display Hangul only
+        hangul_only = " ".join(re.findall(r"[가-힣]+", name))
+        return "ko", hangul_only, f"{_spell_hangul_name(hangul_only)} 님, {counter}번 창구로 오세요."
 
     if _llm_endpoint() is not None:
         hangul = await _romanized_to_hangul(name)
