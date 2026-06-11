@@ -46,7 +46,7 @@ def _ensure_today(data: dict, target: date) -> dict:
     iso = target.isoformat()
     if data.get("date") != iso:
         return {"date": iso, "passcode": _generate_passcode(), "states": {},
-                "walkins": [], "walkin_seq": 0}
+                "walkins": [], "walkin_seq": 0, "walkin_seq_w": 0}
     if "passcode" not in data or not data["passcode"]:
         data["passcode"] = _generate_passcode()
     if "states" not in data:
@@ -54,6 +54,12 @@ def _ensure_today(data: dict, target: date) -> dict:
     if "walkins" not in data:
         data["walkins"] = []
         data["walkin_seq"] = 0
+    if "walkin_seq_w" not in data:
+        data["walkin_seq_w"] = 0
+    for w in data["walkins"]:  # migrate pre-uid entries
+        w.setdefault("prefix", "P")
+        w.setdefault("uid", f"{w['prefix']}-{w['num']}")
+        w.setdefault("kind", "pickup")
     return data
 
 
@@ -88,20 +94,38 @@ def set_state(target: date, appointment_id: str, state: str) -> None:
 
 # ---------- Walk-in pickup queue (no-reservation visitors) ----------
 
-WALKIN_TYPES = {"passport": "여권", "family": "가족관계등록부"}
+# key: (label_ko, label_en, kind, prefix, default_counter)
+# kind "pickup" (common, P-series) vs "walkin" (rare services, W-series)
+WALKIN_TYPE_META = {
+    "passport":    ("여권 픽업", "Passport pickup", "pickup", "P", 1),
+    "family":      ("가족관계등록부 픽업", "Family cert. pickup", "pickup", "P", 3),
+    "emergency":   ("긴급여권", "Emergency passport", "walkin", "W", 1),
+    "notary":      ("공증", "Notary", "walkin", "W", 4),
+    "family_misc": ("가족·국적", "Family / Nationality", "walkin", "W", 3),
+    "others":      ("기타", "Others", "walkin", "W", 2),
+}
 WALKIN_STATES = {"waiting", "active", "done"}
+_SEQ_FIELD = {"P": "walkin_seq", "W": "walkin_seq_w"}
 
 
 def add_walkin(target: date, wtype: str, time_label: str) -> dict:
-    if wtype not in WALKIN_TYPES:
+    if wtype not in WALKIN_TYPE_META:
         raise ValueError(f"invalid walk-in type: {wtype!r}")
+    label_ko, label_en, kind, prefix, default_counter = WALKIN_TYPE_META[wtype]
+    seq_field = _SEQ_FIELD[prefix]
     with _lock:
         data = _ensure_today(_read(), target)
-        data["walkin_seq"] += 1
+        data[seq_field] += 1
+        num = data[seq_field]
         entry = {
-            "num": data["walkin_seq"],
+            "uid": f"{prefix}-{num}",
+            "num": num,
+            "prefix": prefix,
+            "kind": kind,
             "type": wtype,
-            "type_label": WALKIN_TYPES[wtype],
+            "type_label": label_ko,
+            "label_en": label_en,
+            "default_counter": default_counter,
             "state": "waiting",
             "time": time_label,
             "ts": time.time(),
@@ -119,32 +143,41 @@ def get_walkins(target: date) -> list[dict]:
         return list(data.get("walkins", []))
 
 
-def set_walkin_state(target: date, num: int, state: str) -> bool:
+def set_walkin_state(target: date, uid: str, state: str) -> bool:
     if state not in WALKIN_STATES:
         raise ValueError(f"invalid state: {state!r}")
     with _lock:
         data = _ensure_today(_read(), target)
         for w in data["walkins"]:
-            if w["num"] == num:
+            if w["uid"] == uid:
                 w["state"] = state
                 _write(data)
                 return True
         return False
 
 
-def delete_walkin(target: date, num: int) -> bool:
+def get_walkin(target: date, uid: str) -> dict | None:
+    with _lock:
+        data = _read()
+        if data.get("date") != target.isoformat():
+            return None
+        return next((w for w in data.get("walkins", []) if w.get("uid") == uid), None)
+
+
+def delete_walkin(target: date, uid: str) -> bool:
     with _lock:
         data = _ensure_today(_read(), target)
-        entry = next((w for w in data["walkins"] if w["num"] == num), None)
+        entry = next((w for w in data["walkins"] if w["uid"] == uid), None)
         if entry is None:
             return False
-        data["walkins"] = [w for w in data["walkins"] if w["num"] != num]
+        data["walkins"] = [w for w in data["walkins"] if w["uid"] != uid]
         # Reclaim the number ONLY for an immediate undo (within 60s of issuing,
-        # still the latest, still waiting). Any number that existed longer may
-        # already be known to a visitor in the lobby — never reuse it that day,
-        # so a new "P-1" can't collide with someone still holding the old P-1.
+        # still the latest of its series, still waiting). Older numbers are
+        # never reused that day to avoid two visitors holding the same number.
+        seq_field = _SEQ_FIELD.get(entry.get("prefix", "P"), "walkin_seq")
         recent = (time.time() - entry.get("ts", 0)) <= 60
-        if num == data["walkin_seq"] and entry["state"] == "waiting" and recent:
-            data["walkin_seq"] = max((w["num"] for w in data["walkins"]), default=0)
+        if entry["num"] == data[seq_field] and entry["state"] == "waiting" and recent:
+            same = [w["num"] for w in data["walkins"] if w.get("prefix") == entry.get("prefix")]
+            data[seq_field] = max(same, default=0)
         _write(data)
         return True

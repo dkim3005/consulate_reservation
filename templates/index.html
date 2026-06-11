@@ -785,6 +785,30 @@
     }
     .wi-card .wi-del:hover { color: var(--noshow); }
 
+    .wi-cat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .wi-cat-grid button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 14px 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .wi-cat-grid button:hover { border-color: var(--accent); }
+    .wi-cat-grid button .en-sub { color: var(--text-3); font-size: 10.5px; font-weight: 500; }
+
     /* Big number modal shown right after registration */
     .wi-num-display {
       text-align: center;
@@ -1084,9 +1108,10 @@
     </div>
 
     <div class="walkin-bar">
-      <button class="wi-toggle" id="wi-toggle" type="button">📦 픽업 <span class="wi-badge" id="wi-badge" hidden>0</span></button>
-      <button class="wi-add" data-type="passport" type="button">+ 여권 <span class="en-sub">Passport</span></button>
-      <button class="wi-add" data-type="family" type="button">+ 가족관계등록부 <span class="en-sub">Family Cert.</span></button>
+      <button class="wi-toggle" id="wi-toggle" type="button">📦 픽업·워크인 <span class="wi-badge" id="wi-badge" hidden>0</span></button>
+      <button class="wi-add" data-type="passport" type="button">+ 여권픽업 <span class="en-sub">Passport</span></button>
+      <button class="wi-add" data-type="family" type="button">+ 가족관계픽업 <span class="en-sub">Family Cert.</span></button>
+      <button class="wi-add wi-walkin-open" id="wi-walkin-open" type="button">+ 워크인 <span class="en-sub">Walk-in</span></button>
     </div>
     <div class="walkin-panel" id="wi-panel" hidden></div>
   </div>
@@ -1238,6 +1263,22 @@
   {% endif %}
 
   <div class="toast-stack" id="toast-stack"></div>
+
+  <div class="call-modal-backdrop" id="wi-cat-modal" hidden>
+    <div class="call-modal">
+      <div class="cm-name">워크인 종류 <span style="font-size:12px; color:var(--text-3); font-weight:500;">Walk-in type</span></div>
+      <div class="cm-sub">예약 없이 방문한 민원 종류를 선택하세요</div>
+      <div class="wi-cat-grid">
+        <button type="button" data-type="emergency">긴급여권<span class="en-sub">Emergency Passport</span></button>
+        <button type="button" data-type="notary">공증<span class="en-sub">Notary</span></button>
+        <button type="button" data-type="family_misc">가족·국적<span class="en-sub">Family / Nationality</span></button>
+        <button type="button" data-type="others">기타<span class="en-sub">Others</span></button>
+      </div>
+      <div class="cm-actions">
+        <button type="button" class="cm-cancel" id="wi-cat-cancel">취소 · Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <div class="call-modal-backdrop" id="wi-modal" hidden>
     <div class="call-modal">
@@ -1442,13 +1483,12 @@
           selectCounter(def);
           modal.hidden = false;
         }
-        openWalkinCall = function (num) {
-          callWalkinNum = num;
+        openWalkinCall = function (uid) {
+          callWalkinNum = uid;
           callApptId = null;
-          cmName.textContent = '픽업 P-' + num;
-          // Default counter by pickup type: passport → 1, family cert → 3
-          const w = walkins.find(function (x) { return x.num === num; });
-          selectCounter(w && w.type === 'family' ? 3 : 1);
+          const w = walkins.find(function (x) { return x.uid === uid; });
+          cmName.textContent = (w && w.kind === 'walkin' ? '워크인 ' : '픽업 ') + uid;
+          selectCounter((w && w.default_counter) || 1);
           modal.hidden = false;
         };
         function closeModal() { modal.hidden = true; callApptId = null; callWalkinNum = null; }
@@ -1476,7 +1516,7 @@
           const walkinNum = callWalkinNum;
           const url = walkinNum !== null ? '/api/call-walkin' : '/api/call';
           const body = walkinNum !== null
-            ? { num: walkinNum, counter: chosenCounter }
+            ? { uid: walkinNum, counter: chosenCounter }
             : { appt_id: apptId, counter: chosenCounter };
           try {
             const r = await fetch(url, {
@@ -1513,7 +1553,6 @@
 
       // ---- Walk-in pickup queue ----
       const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
-      const WI_EN = { passport: 'Passport', family: 'Family Cert.' };
       // Pickups have no "done" state — when finished, staff removes the card
       // with ✕. Click toggles waiting ⇄ active only.
       const WI_ICON = { waiting: '⏳', active: '▶', done: '✓' };
@@ -1536,11 +1575,11 @@
         }
         wiPanel.innerHTML = walkins.map(function (w) {
           let btns = '';
-          if (IS_ADMIN) btns += '<button class="call-btn wi-callbtn" data-num="' + w.num + '" type="button" title="호출">📢</button>';
-          if (IS_ADMIN || w.state === 'waiting') btns += '<button class="wi-del" data-num="' + w.num + '" type="button" title="삭제 · Remove">✕</button>';
-          return '<div class="wi-card st-' + w.state + '" data-num="' + w.num + '">' +
-            '<span class="wi-num">P-' + w.num + '</span>' +
-            '<span class="wi-type">' + w.type_label + ' · ' + (WI_EN[w.type] || '') + '</span>' +
+          if (IS_ADMIN) btns += '<button class="call-btn wi-callbtn" data-uid="' + w.uid + '" type="button" title="호출">📢</button>';
+          if (IS_ADMIN || w.state === 'waiting') btns += '<button class="wi-del" data-uid="' + w.uid + '" type="button" title="삭제 · Remove">✕</button>';
+          return '<div class="wi-card st-' + w.state + '" data-uid="' + w.uid + '">' +
+            '<span class="wi-num">' + w.uid + '</span>' +
+            '<span class="wi-type">' + w.type_label + ' · ' + (w.label_en || '') + '</span>' +
             '<span class="wi-time">' + w.time + '</span>' +
             '<span class="wi-state">' + (WI_ICON[w.state] || '') + '</span>' +
             btns + '</div>';
@@ -1552,28 +1591,45 @@
         wiPanel.hidden = !wiPanel.hidden;
       });
 
-      document.querySelectorAll('.wi-add').forEach(function (btn) {
-        btn.addEventListener('click', async function () {
-          try {
-            const r = await fetch('/api/walkin', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: btn.dataset.type })
-            });
-            if (r.status === 401) { window.location.href = '/login'; return; }
-            if (!r.ok) { showToastHtml('⚠ 접수 실패 (' + r.status + ')', 4000); return; }
-            const d = await r.json();
-            lastRegistered = d.walkin;
-            walkins.push(d.walkin);
-            wiPanel.hidden = false;
-            renderWalkins();
-            document.getElementById('wi-num-big').textContent = 'P-' + d.walkin.num;
-            document.getElementById('wi-num-type').textContent =
-              d.walkin.type_label + ' · ' + (WI_EN[d.walkin.type] || '');
-            wiModal.hidden = false;
-          } catch (e) {
-            showToastHtml('⚠ 접수 실패: 네트워크 오류', 4000);
-          }
+      async function registerWalkin(wtype) {
+        try {
+          const r = await fetch('/api/walkin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: wtype })
+          });
+          if (r.status === 401) { window.location.href = '/login'; return; }
+          if (!r.ok) { showToastHtml('⚠ 접수 실패 (' + r.status + ')', 4000); return; }
+          const d = await r.json();
+          lastRegistered = d.walkin;
+          walkins.push(d.walkin);
+          wiPanel.hidden = false;
+          renderWalkins();
+          document.getElementById('wi-num-big').textContent = d.walkin.uid;
+          document.getElementById('wi-num-type').textContent =
+            d.walkin.type_label + ' · ' + (d.walkin.label_en || '');
+          wiModal.hidden = false;
+        } catch (e) {
+          showToastHtml('⚠ 접수 실패: 네트워크 오류', 4000);
+        }
+      }
+      document.querySelectorAll('.wi-add:not(.wi-walkin-open)').forEach(function (btn) {
+        btn.addEventListener('click', function () { registerWalkin(btn.dataset.type); });
+      });
+      const wiCatModal = document.getElementById('wi-cat-modal');
+      document.getElementById('wi-walkin-open').addEventListener('click', function () {
+        wiCatModal.hidden = false;
+      });
+      document.getElementById('wi-cat-cancel').addEventListener('click', function () {
+        wiCatModal.hidden = true;
+      });
+      wiCatModal.addEventListener('click', function (e) {
+        if (e.target === wiCatModal) wiCatModal.hidden = true;
+      });
+      wiCatModal.querySelectorAll('.wi-cat-grid button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          wiCatModal.hidden = true;
+          registerWalkin(b.dataset.type);
         });
       });
 
@@ -1584,10 +1640,10 @@
       document.getElementById('wi-undo').addEventListener('click', async function () {
         if (lastRegistered) {
           try {
-            await fetch('/api/walkin/' + lastRegistered.num, { method: 'DELETE' });
-            walkins = walkins.filter(function (w) { return w.num !== lastRegistered.num; });
+            await fetch('/api/walkin/' + lastRegistered.uid, { method: 'DELETE' });
+            walkins = walkins.filter(function (w) { return w.uid !== lastRegistered.uid; });
             renderWalkins();
-            showToastHtml('🗑 P-' + lastRegistered.num + ' 취소됨 · Cancelled', 3000);
+            showToastHtml('🗑 ' + lastRegistered.uid + ' 취소됨 · Cancelled', 3000);
           } catch (e) {}
         }
         wiModal.hidden = true;
@@ -1601,16 +1657,16 @@
         const card = e.target.closest('.wi-card');
         if (callBtn) {
           e.stopPropagation();
-          if (typeof openWalkinCall === 'function') openWalkinCall(parseInt(callBtn.dataset.num, 10));
+          if (typeof openWalkinCall === 'function') openWalkinCall(callBtn.dataset.uid);
           return;
         }
         if (delBtn) {
           e.stopPropagation();
-          const num = parseInt(delBtn.dataset.num, 10);
+          const uid = delBtn.dataset.uid;
           try {
-            const r = await fetch('/api/walkin/' + num, { method: 'DELETE' });
+            const r = await fetch('/api/walkin/' + uid, { method: 'DELETE' });
             if (r.ok) {
-              walkins = walkins.filter(function (w) { return w.num !== num; });
+              walkins = walkins.filter(function (w) { return w.uid !== uid; });
               renderWalkins();
             } else if (r.status === 403) {
               showToastHtml('⚠ 처리 중인 항목은 창구 직원만 삭제할 수 있습니다', 4000);
@@ -1619,14 +1675,14 @@
           return;
         }
         if (card) {
-          const num = parseInt(card.dataset.num, 10);
-          const w = walkins.find(function (x) { return x.num === num; });
+          const uid = card.dataset.uid;
+          const w = walkins.find(function (x) { return x.uid === uid; });
           if (!w) return;
           const next = WI_CYCLE[w.state] || 'waiting';
           w.state = next;
           renderWalkins();
           try {
-            await fetch('/api/walkin/' + num + '/state', {
+            await fetch('/api/walkin/' + uid + '/state', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ state: next })

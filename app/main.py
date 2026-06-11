@@ -466,7 +466,7 @@ class WalkinState(BaseModel):
 
 
 class WalkinCall(BaseModel):
-    num: int
+    uid: str
     counter: int
 
 
@@ -482,11 +482,11 @@ async def create_walkin(req: WalkinCreate, role: str = Depends(require_session_a
     return JSONResponse({"ok": True, "walkin": entry})
 
 
-@app.post("/api/walkin/{num}/state")
-async def update_walkin(num: int, req: WalkinState, role: str = Depends(require_session_api)) -> JSONResponse:
+@app.post("/api/walkin/{uid}/state")
+async def update_walkin(uid: str, req: WalkinState, role: str = Depends(require_session_api)) -> JSONResponse:
     target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
     try:
-        found = store.set_walkin_state(target, num, req.state)
+        found = store.set_walkin_state(target, uid, req.state)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if not found:
@@ -494,17 +494,17 @@ async def update_walkin(num: int, req: WalkinState, role: str = Depends(require_
     return JSONResponse({"ok": True})
 
 
-@app.delete("/api/walkin/{num}")
-async def remove_walkin(num: int, role: str = Depends(require_session_api)) -> JSONResponse:
+@app.delete("/api/walkin/{uid}")
+async def remove_walkin(uid: str, role: str = Depends(require_session_api)) -> JSONResponse:
     """Security (staff) can undo mistakes while the entry is still waiting;
     once it's been called/served (active/done), only admin can delete."""
     target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
-    entry = next((w for w in store.get_walkins(target) if w["num"] == num), None)
+    entry = store.get_walkin(target, uid)
     if entry is None:
         raise HTTPException(status_code=404, detail="walk-in not found")
     if role != auth.ROLE_ADMIN and entry["state"] != "waiting":
         raise HTTPException(status_code=403, detail="already in service — ask staff to remove")
-    store.delete_walkin(target, num)
+    store.delete_walkin(target, uid)
     return JSONResponse({"ok": True})
 
 
@@ -513,14 +513,15 @@ async def call_walkin(req: WalkinCall, role: str = Depends(require_session_api))
     if role != auth.ROLE_ADMIN:
         raise HTTPException(status_code=403, detail="call permission is staff-only")
     target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
-    entry = next((w for w in store.get_walkins(target) if w["num"] == req.num), None)
+    entry = store.get_walkin(target, req.uid)
     if entry is None:
         raise HTTPException(status_code=404, detail="walk-in not found")
-    display = f"픽업 P-{req.num}"
-    # "P" included in speech (matches the "P-1" the visitor was told) and a
-    # full stop before the counter — avoids "1번 1번" running together
-    text = f"픽업 P {req.num}번. {req.counter}번 창구로 오세요."
-    ok, err = await calls.enqueue_custom(f"walkin:{req.num}", display, text, req.counter)
+    word = "픽업" if entry["kind"] == "pickup" else "워크인"
+    display = f"{word} {entry['uid']}"
+    # letter prefix included in speech (matches the "P-1"/"W-1" the visitor
+    # was told); full stop before the counter avoids "1번 1번" running together
+    text = f"{word} {entry['prefix']} {entry['num']}번. {req.counter}번 창구로 오세요."
+    ok, err = await calls.enqueue_custom(f"walkin:{entry['uid']}", display, text, req.counter)
     if not ok:
         raise HTTPException(status_code=429, detail=err)
     return JSONResponse({"ok": True, "queued": calls.get_state()["queue_size"]})
@@ -545,7 +546,8 @@ async def api_tv(role: str = Depends(require_session_api)) -> JSONResponse:
             elif a["attendance"] == "active":
                 active.append(entry)
     for w in payload["walkins"]:
-        entry = {"name": f"픽업 P-{w['num']}", "counter": 0, "time": w["time"]}
+        word = "픽업" if w.get("kind") == "pickup" else "워크인"
+        entry = {"name": f"{word} {w.get('uid', 'P-' + str(w['num']))}", "counter": 0, "time": w["time"]}
         if w["state"] == "waiting":
             waiting.append(entry)
         elif w["state"] == "active":
