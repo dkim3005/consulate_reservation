@@ -69,6 +69,7 @@
       padding: 18px 28px;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
+      position: relative;   /* anchors the absolutely-centered title */
     }
     .topbar img {
       width: 56px; height: 56px; object-fit: contain;
@@ -80,9 +81,12 @@
     .topbar .ko { font-size: 26px; font-weight: 700; }
     .topbar .en { font-size: 14px; color: var(--text-3); margin-top: 2px; }
     .topbar .page-title {
-      margin: 0 auto;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
       text-align: center;
     }
+    .topbar .clock { margin-left: auto; }
     .topbar .page-title .t-ko {
       font-size: 30px;
       font-weight: 800;
