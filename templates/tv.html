@@ -495,7 +495,7 @@
 
       // done() fires when the announcement (PLAY_COUNT plays) actually
       // finishes, so the overlay can hold for the full audio + a tail.
-      const PLAY_COUNT = 3;
+      const PLAY_COUNT = 1;
       function playRepeated(url, done) {
         if (!audioUnlocked || !url) { if (done) done(); return; }
         let plays = 0;

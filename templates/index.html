@@ -405,32 +405,32 @@
     /* Waiting/Active are the states that matter most — make them pop.
        outline-offset keeps the thick line INSIDE the card bounds. */
     .card.state-waiting {
-      background: var(--waiting-vivid) !important;
+      background: linear-gradient(var(--waiting-vivid), var(--waiting-vivid)), var(--surface) !important;
       outline: 2px solid var(--waiting) !important;
       outline-offset: -2px !important;
     }
     .card.state-waiting .state-badge{ display: inline-flex; background: var(--waiting); }
     .card.state-active {
-      background: var(--active-vivid) !important;
+      background: linear-gradient(var(--active-vivid), var(--active-vivid)), var(--surface) !important;
       outline: 2px solid var(--active) !important;
       outline-offset: -2px !important;
     }
     .card.state-active  .state-badge{ display: inline-flex; background: var(--active); }
-    .card.state-done                { background: var(--done-soft); opacity: 0.6; }
+    .card.state-done                { background: linear-gradient(var(--done-soft), var(--done-soft)), var(--surface); opacity: 0.6; }
     .card.state-done    .state-badge{ display: inline-flex; background: var(--done); }
-    .card.state-noshow              { background: var(--noshow-soft); opacity: 0.6; }
+    .card.state-noshow              { background: linear-gradient(var(--noshow-soft), var(--noshow-soft)), var(--surface); opacity: 0.6; }
     .card.state-noshow  .state-badge{ display: inline-flex; background: var(--noshow); }
 
     /* Auto-states fire only when no manual state is set */
     .card:not(.state-waiting):not(.state-active):not(.state-done):not(.state-noshow).auto-late {
-      background: var(--late-soft);
+      background: linear-gradient(var(--late-soft), var(--late-soft)), var(--surface);
     }
     .card:not(.state-waiting):not(.state-active):not(.state-done):not(.state-noshow).auto-late .auto-badge {
       display: inline-flex;
       background: var(--late);
     }
     .card:not(.state-waiting):not(.state-active):not(.state-done):not(.state-noshow).auto-noshow {
-      background: var(--noshow-soft);
+      background: linear-gradient(var(--noshow-soft), var(--noshow-soft)), var(--surface);
       opacity: 0.55;
     }
     .card:not(.state-waiting):not(.state-active):not(.state-done):not(.state-noshow).auto-noshow .auto-badge {
