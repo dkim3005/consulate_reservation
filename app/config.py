@@ -19,6 +19,8 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") == "1"
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY") or os.getenv("deepseek")
 # Optional: primary TTS (gpt-4o-mini-tts). Falls back to edge-tts when unset.
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("gpt")
+# Optional: Google Cloud TTS (Chirp3-HD) — takes precedence over OpenAI for voice
+GOOGLE_TTS_API_KEY = os.getenv("GOOGLE_TTS_API_KEY") or os.getenv("google")
 
 VCITA_BASE_URL = "https://api.vcita.biz"
 LOCAL_TZ = "America/Toronto"

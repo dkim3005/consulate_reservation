@@ -32,7 +32,7 @@ try:
 except ImportError:  # pragma: no cover
     edge_tts = None
 
-from app.config import DEEPSEEK_API_KEY, OPENAI_API_KEY
+from app.config import DEEPSEEK_API_KEY, GOOGLE_TTS_API_KEY, OPENAI_API_KEY
 
 log = logging.getLogger("consulate_dashboard.calls")
 
@@ -45,8 +45,12 @@ VOICE_KO = "ko-KR-HyunsuMultilingualNeural"
 VOICE_EN = "en-US-AvaMultilingualNeural"
 TTS_RATE = "-10%"  # slightly slower for lobby clarity
 
-# OpenAI TTS (primary) — gpt-4o-mini-tts is the cheapest TTS model.
-# One consistent announcer identity for every call (KO and EN).
+# Google Cloud TTS (primary when key present) — Chirp3-HD, free tier 1M chars/mo.
+# Same persona name across locales keeps one announcer identity for KO and EN.
+GOOGLE_TTS_VOICE_KO = "ko-KR-Chirp3-HD-Zephyr"
+GOOGLE_TTS_VOICE_EN = "en-US-Chirp3-HD-Zephyr"
+
+# OpenAI TTS (fallback #1) — gpt-4o-mini-tts is the cheapest TTS model.
 OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
 OPENAI_TTS_VOICE = "nova"
 OPENAI_TTS_INSTRUCTIONS_KO = (
@@ -262,6 +266,31 @@ async def _romanized_to_hangul(name: str, force: bool = False) -> str | None:
 
 # ---------- TTS ----------
 
+async def _google_tts(text: str, lang: str, path: Path) -> bool:
+    voice = GOOGLE_TTS_VOICE_KO if lang == "ko" else GOOGLE_TTS_VOICE_EN
+    lang_code = "ko-KR" if lang == "ko" else "en-US"
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                f"https://texttospeech.googleapis.com/v1/text:synthesize?key={GOOGLE_TTS_API_KEY}",
+                json={
+                    "input": {"text": text},
+                    "voice": {"languageCode": lang_code, "name": voice},
+                    "audioConfig": {"audioEncoding": "MP3"},
+                },
+                timeout=20.0,
+            )
+        if r.status_code != 200:
+            log.warning("google tts HTTP %s for %r: %s", r.status_code, text, r.text[:200])
+            return False
+        import base64
+        path.write_bytes(base64.b64decode(r.json()["audioContent"]))
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.warning("google tts failed for %r: %s", text, e)
+        return False
+
+
 async def _openai_tts(text: str, lang: str, path: Path) -> bool:
     instructions = OPENAI_TTS_INSTRUCTIONS_KO if lang == "ko" else OPENAI_TTS_INSTRUCTIONS_EN
     try:
@@ -303,9 +332,12 @@ async def _edge_tts(text: str, lang: str, path: Path) -> bool:
 async def _ensure_tts(text: str, lang: str) -> str | None:
     """Generate (or reuse cached) mp3; returns URL path or None on failure.
 
-    Primary: OpenAI gpt-4o-mini-tts. Fallback: edge-tts. Cached by content hash.
+    Chain: Google Chirp3-HD → OpenAI gpt-4o-mini-tts → edge-tts.
+    Engine identity is part of the cache hash.
     """
-    if OPENAI_API_KEY:
+    if GOOGLE_TTS_API_KEY:
+        engine = f"google:{GOOGLE_TTS_VOICE_KO if lang == 'ko' else GOOGLE_TTS_VOICE_EN}"
+    elif OPENAI_API_KEY:
         instructions = OPENAI_TTS_INSTRUCTIONS_KO if lang == "ko" else OPENAI_TTS_INSTRUCTIONS_EN
         engine = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}:{instructions}"
     else:
@@ -316,6 +348,8 @@ async def _ensure_tts(text: str, lang: str) -> str | None:
         return f"/static/tts/{path.name}"
 
     TTS_DIR.mkdir(parents=True, exist_ok=True)
+    if GOOGLE_TTS_API_KEY and await _google_tts(text, lang, path):
+        return f"/static/tts/{path.name}"
     if OPENAI_API_KEY and await _openai_tts(text, lang, path):
         return f"/static/tts/{path.name}"
     if await _edge_tts(text, lang, path):
@@ -491,7 +525,12 @@ async def get_daily_quote(date_iso: str) -> str:
 
 
 def start_worker() -> None:
-    tts = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}" if OPENAI_API_KEY else "edge-tts (fallback)"
+    if GOOGLE_TTS_API_KEY:
+        tts = f"google:{GOOGLE_TTS_VOICE_KO}"
+    elif OPENAI_API_KEY:
+        tts = f"openai:{OPENAI_TTS_MODEL}:{OPENAI_TTS_VOICE}"
+    else:
+        tts = "edge-tts (fallback)"
     llm = (_llm_endpoint() or ("", "", "none"))[2]
     log.warning("call worker started — tts=%s, name-classifier=%s", tts, llm)
     asyncio.create_task(_worker())
