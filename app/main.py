@@ -95,14 +95,7 @@ def require_session_api(
 # ---------- Date / passcode helpers ----------
 
 def _target_date(now_local: datetime) -> date:
-    """Once business closes (BUSINESS_END), roll the dashboard to next day's list.
-
-    Debug: set FORCE_TARGET_DATE=YYYY-MM-DD in the environment to pin the
-    dashboard to a specific date (local previews of past days)."""
-    import os
-    forced = os.getenv("FORCE_TARGET_DATE")
-    if forced:
-        return date.fromisoformat(forced)
+    """Once business closes (BUSINESS_END), roll the dashboard to next day's list."""
     cur = now_local.hour * 60 + now_local.minute
     if cur >= _to_min(BUSINESS_END):
         return (now_local + timedelta(days=1)).date()
@@ -170,12 +163,9 @@ def _shape(appt: dict, states: dict[str, str]) -> dict:
 TIMELINE_SLOT_MIN = 5  # grid resolution: 1 row = 5 minutes
 
 
-def _build_timeline(grouped: dict[str, list[dict]], columns: list[str],
-                    blocks: list[dict] | None = None) -> dict | None:
+def _build_timeline(grouped: dict[str, list[dict]], columns: list[str]) -> dict | None:
     """Time-proportional grid: each appointment block spans rows equal to its
-    duration, so a 5-minute gap visually differs from a 15-minute one.
-    Staff time blocks (반가 등) render as background bands in their column."""
-    blocks = blocks or []
+    duration, so a 5-minute gap visually differs from a 15-minute one."""
     items: list[dict] = []
     lo: int | None = None
     hi: int | None = None
@@ -186,13 +176,6 @@ def _build_timeline(grouped: dict[str, list[dict]], columns: list[str],
             lo = s if lo is None or s < lo else lo
             hi = e if hi is None or e > hi else hi
             items.append({**a, "col": ci, "_s": s, "_e": e})
-    for b in blocks:
-        s = (b["start_min"] // TIMELINE_SLOT_MIN) * TIMELINE_SLOT_MIN
-        e = max(b["end_min"], s + TIMELINE_SLOT_MIN)
-        lo = s if lo is None or s < lo else lo
-        hi = e if hi is None or e > hi else hi
-    if lo is None and not blocks:
-        return None
     if lo is None:
         return None
 
@@ -243,19 +226,7 @@ def _build_timeline(grouped: dict[str, list[dict]], columns: list[str],
     if lo <= 12 * 60 and hi >= 13 * 60:
         lunch = {"row": (12 * 60 - lo) // TIMELINE_SLOT_MIN + 1, "span": 60 // TIMELINE_SLOT_MIN}
 
-    block_bands = [
-        {
-            "id": b["id"],
-            "col": b["counter"],
-            "row": (max(b["start_min"] // TIMELINE_SLOT_MIN * TIMELINE_SLOT_MIN, lo) - lo) // TIMELINE_SLOT_MIN + 1,
-            "span": max((min(b["end_min"], hi) - max(b["start_min"], lo)) // TIMELINE_SLOT_MIN, 1),
-            "label": b["label"],
-            "time_range": f"{b['start_min'] // 60:02d}:{b['start_min'] % 60:02d}–{b['end_min'] // 60:02d}:{b['end_min'] % 60:02d}",
-        }
-        for b in blocks
-    ]
-    return {"slots": total_slots, "labels": labels, "cards": items, "lunch": lunch,
-            "blocks": block_bands}
+    return {"slots": total_slots, "labels": labels, "cards": items, "lunch": lunch}
 
 
 def _split_am_pm(items: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -291,7 +262,6 @@ async def _build_payload(role: str) -> dict:
     # LLM-verified Hangul (김시후) as the primary line, romanized as secondary —
     # same look as native-Hangul bookings. Conversions come from the cache the
     # warm loop pre-populates; no LLM call happens here.
-    blocks = store.get_blocks(target)
     hangul_map = calls.get_cached_hangul_map()
     for items in grouped.values():
         for a in items:
@@ -304,7 +274,7 @@ async def _build_payload(role: str) -> dict:
     columns = list(COUNTERS)
     if grouped.get("기타 / Other"):
         columns.append("기타 / Other")
-    timeline = _build_timeline(grouped, columns, blocks)
+    timeline = _build_timeline(grouped, columns)
     grouped_split = {
         col: {"am": am, "pm": pm}
         for col, (am, pm) in ((c, _split_am_pm(grouped.get(c, []))) for c in columns)
@@ -327,7 +297,6 @@ async def _build_payload(role: str) -> dict:
         "grouped_split": grouped_split,
         "timeline": timeline,
         "walkins": walkins,
-        "blocks": blocks,
         "lunch_quote": lunch_quote,
         "in_business_hours": in_hours,
         "business_window": f"{BUSINESS_START[0]:02d}:{BUSINESS_START[1]:02d}–{BUSINESS_END[0]:02d}:{BUSINESS_END[1]:02d}",
@@ -556,42 +525,6 @@ async def call_walkin(req: WalkinCall, role: str = Depends(require_session_api))
     if not ok:
         raise HTTPException(status_code=429, detail=err)
     return JSONResponse({"ok": True, "queued": calls.get_state()["queue_size"]})
-
-
-# ---------- Staff time blocks ----------
-
-class BlockCreate(BaseModel):
-    counter: int
-    start: str   # "HH:MM"
-    end: str     # "HH:MM"
-    label: str
-
-
-def _hm_to_min(hm: str) -> int:
-    h, m = hm.split(":")
-    return int(h) * 60 + int(m)
-
-
-@app.post("/api/block")
-async def create_block(req: BlockCreate, role: str = Depends(require_session_api)) -> JSONResponse:
-    if role != auth.ROLE_ADMIN:
-        raise HTTPException(status_code=403, detail="blocks are staff-only")
-    target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
-    try:
-        entry = store.add_block(target, req.counter, _hm_to_min(req.start), _hm_to_min(req.end), req.label)
-    except (ValueError, IndexError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return JSONResponse({"ok": True, "block": entry})
-
-
-@app.delete("/api/block/{block_id}")
-async def remove_block(block_id: int, role: str = Depends(require_session_api)) -> JSONResponse:
-    if role != auth.ROLE_ADMIN:
-        raise HTTPException(status_code=403, detail="blocks are staff-only")
-    target = _target_date(datetime.now(ZoneInfo(LOCAL_TZ)))
-    if not store.delete_block(target, block_id):
-        raise HTTPException(status_code=404, detail="block not found")
-    return JSONResponse({"ok": True})
 
 
 # ---------- TV waiting board ----------

@@ -575,61 +575,6 @@
       transition: opacity 0.2s, filter 0.2s;
     }
 
-    .tl-block {
-      z-index: 1;
-      margin: 2px 1px;
-      border-radius: 8px;
-      background: repeating-linear-gradient(
-        -45deg,
-        var(--surface-2) 0 8px,
-        var(--surface) 8px 16px
-      );
-      border: 1px dashed var(--text-3);
-      color: var(--text-2);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 2px;
-      font-size: 12.5px;
-      font-weight: 700;
-      text-align: center;
-      padding: 6px;
-      overflow: hidden;
-    }
-    .tl-block .blk-time { font-size: 10.5px; color: var(--text-3); font-weight: 500; }
-    .tl-block .blk-del {
-      position: absolute;
-      top: 4px; right: 6px;
-      background: none; border: none;
-      color: var(--text-3);
-      cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-    }
-    .tl-block { position: relative; }
-    .tl-block .blk-del:hover { color: var(--noshow); }
-
-    .blk-form-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .blk-form-grid label { font-size: 11.5px; color: var(--text-3); font-weight: 700; display: block; margin-bottom: 4px; }
-    .blk-form-grid input {
-      width: 100%;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      padding: 9px 10px;
-      font-size: 14px;
-      font-family: inherit;
-    }
-    .blk-times { display: flex; gap: 8px; }
-    .blk-times > div { flex: 1; }
-
     .tl-lunch {
       background: var(--surface);
       border: 1px dashed var(--border);
@@ -1167,9 +1112,6 @@
       <button class="wi-add" data-type="passport" type="button">+ 여권픽업 <span class="en-sub">Passport</span></button>
       <button class="wi-add" data-type="family" type="button">+ 가족관계픽업 <span class="en-sub">Family Cert.</span></button>
       <button class="wi-add wi-walkin-open" id="wi-walkin-open" type="button">+ 워크인 <span class="en-sub">Walk-in</span></button>
-      {% if is_admin %}
-      <button class="wi-add" id="blk-open" type="button">🚫 블록 <span class="en-sub">Block time</span></button>
-      {% endif %}
     </div>
     <div class="walkin-panel" id="wi-panel" hidden></div>
   </div>
@@ -1200,13 +1142,6 @@
             {% if lunch_quote %}<div class="lunch-quote">{{ lunch_quote }}</div>{% endif %}
           </div>
         {% endif %}
-        {% for b in timeline.blocks %}
-          <div class="tl-block" style="grid-row: {{ b.row }} / span {{ b.span }}; grid-column: {{ b.col + 1 }};">
-            {% if is_admin %}<button class="blk-del" data-id="{{ b.id }}" type="button" title="삭제">✕</button>{% endif %}
-            <span>{{ b.label }}</span>
-            <span class="blk-time">{{ b.time_range }}</span>
-          </div>
-        {% endfor %}
         {% for c in timeline.cards %}
           <div class="card col-{{ c.col }} {% if c.attendance %}state-{{ c.attendance }}{% endif %}"
                style="grid-row: {{ c.row }} / span {{ c.span }}; grid-column: {{ c.col + 1 }};{% if c.lanes and c.lanes > 1 %} width: calc({{ (100 / c.lanes) | round(2) }}% - 3px); margin-left: calc({{ (100 * c.lane / c.lanes) | round(2) }}% + {{ 0 if c.lane == 0 else 3 }}px);{% endif %}"
@@ -1329,39 +1264,6 @@
 
   <div class="toast-stack" id="toast-stack"></div>
 
-  {% if is_admin %}
-  <div class="call-modal-backdrop" id="blk-modal" hidden>
-    <div class="call-modal">
-      <div class="cm-name">시간 블록 <span style="font-size:12px; color:var(--text-3); font-weight:500;">Block time</span></div>
-      <div class="cm-sub">반가·단축근무 등 — 입력한 문구 그대로 표시됩니다</div>
-      <div class="blk-form-grid">
-        <div>
-          <label>라벨 (자유 입력)</label>
-          <input id="blk-label" type="text" placeholder="예: 반가, 오후 단축근무" maxlength="40">
-        </div>
-        <div class="blk-times">
-          <div><label>시작</label><input id="blk-start" type="time" value="13:00" step="300"></div>
-          <div><label>종료</label><input id="blk-end" type="time" value="16:30" step="300"></div>
-        </div>
-        <div>
-          <label>창구 / Counter</label>
-          <div class="cm-counters" id="blk-counters">
-            <button type="button" data-counter="1">1</button>
-            <button type="button" data-counter="2">2</button>
-            <button type="button" data-counter="3">3</button>
-            <button type="button" data-counter="4">4</button>
-            <button type="button" data-counter="5">5</button>
-          </div>
-        </div>
-      </div>
-      <div class="cm-actions">
-        <button type="button" class="cm-cancel" id="blk-cancel">취소</button>
-        <button type="button" class="cm-call" id="blk-save">추가 · Add</button>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
   <div class="call-modal-backdrop" id="wi-cat-modal" hidden>
     <div class="call-modal">
       <div class="cm-name">워크인 종류 <span style="font-size:12px; color:var(--text-3); font-weight:500;">Walk-in type</span></div>
@@ -1429,61 +1331,6 @@
           applyDim();
         });
       });
-
-      // ---- Staff time blocks (admin only) ----
-      const blkModal = document.getElementById('blk-modal');
-      if (blkModal) {
-        let blkCounter = 1;
-        const blkCounters = document.getElementById('blk-counters');
-        function selBlkCounter(n) {
-          blkCounter = n;
-          blkCounters.querySelectorAll('button').forEach(function (b) {
-            b.classList.toggle('sel', parseInt(b.dataset.counter, 10) === n);
-          });
-        }
-        blkCounters.querySelectorAll('button').forEach(function (b) {
-          b.addEventListener('click', function () { selBlkCounter(parseInt(b.dataset.counter, 10)); });
-        });
-        selBlkCounter(1);
-        document.getElementById('blk-open').addEventListener('click', function () {
-          blkModal.hidden = false;
-        });
-        document.getElementById('blk-cancel').addEventListener('click', function () {
-          blkModal.hidden = true;
-        });
-        blkModal.addEventListener('click', function (e) {
-          if (e.target === blkModal) blkModal.hidden = true;
-        });
-        document.getElementById('blk-save').addEventListener('click', async function () {
-          const label = document.getElementById('blk-label').value.trim();
-          const start = document.getElementById('blk-start').value;
-          const end = document.getElementById('blk-end').value;
-          if (!start || !end || start >= end) {
-            showToastHtml('⚠ 시간 범위를 확인하세요', 3500);
-            return;
-          }
-          try {
-            const r = await fetch('/api/block', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ counter: blkCounter, start: start, end: end, label: label })
-            });
-            if (!r.ok) { showToastHtml('⚠ 블록 추가 실패 (' + r.status + ')', 3500); return; }
-            location.reload();   // timeline is server-rendered — reload to show
-          } catch (e) {
-            showToastHtml('⚠ 네트워크 오류', 3500);
-          }
-        });
-        document.querySelectorAll('.blk-del').forEach(function (btn) {
-          btn.addEventListener('click', async function (e) {
-            e.stopPropagation();
-            try {
-              const r = await fetch('/api/block/' + btn.dataset.id, { method: 'DELETE' });
-              if (r.ok) location.reload();
-            } catch (e2) {}
-          });
-        });
-      }
 
       // ---- Sticky header offset (lets thead stick just below the page header) ----
       function syncHeaderH() {

@@ -46,8 +46,7 @@ def _ensure_today(data: dict, target: date) -> dict:
     iso = target.isoformat()
     if data.get("date") != iso:
         return {"date": iso, "passcode": _generate_passcode(), "states": {},
-                "walkins": [], "walkin_seq": 0, "walkin_seq_w": 0,
-                "blocks": [], "block_seq": 0}
+                "walkins": [], "walkin_seq": 0, "walkin_seq_w": 0}
     if "passcode" not in data or not data["passcode"]:
         data["passcode"] = _generate_passcode()
     if "states" not in data:
@@ -57,9 +56,6 @@ def _ensure_today(data: dict, target: date) -> dict:
         data["walkin_seq"] = 0
     if "walkin_seq_w" not in data:
         data["walkin_seq_w"] = 0
-    if "blocks" not in data:
-        data["blocks"] = []
-        data["block_seq"] = 0
     for w in data["walkins"]:  # migrate pre-uid entries
         w.setdefault("prefix", "P")
         w.setdefault("uid", f"{w['prefix']}-{w['num']}")
@@ -166,50 +162,6 @@ def get_walkin(target: date, uid: str) -> dict | None:
         if data.get("date") != target.isoformat():
             return None
         return next((w for w in data.get("walkins", []) if w.get("uid") == uid), None)
-
-
-# ---------- Staff time blocks (반가/단축근무 etc — free-text label) ----------
-# vcita's "block off time" feature is NOT exposed through its public API, so
-# staff enter these directly here. Label is displayed exactly as typed.
-
-def add_block(target: date, counter: int, start_min: int, end_min: int, label: str) -> dict:
-    if not (1 <= counter <= 5):
-        raise ValueError("counter must be 1-5")
-    if not (0 <= start_min < end_min <= 24 * 60):
-        raise ValueError("invalid time range")
-    label = (label or "").strip()[:40] or "블록"
-    with _lock:
-        data = _ensure_today(_read(), target)
-        data["block_seq"] += 1
-        entry = {
-            "id": data["block_seq"],
-            "counter": counter,
-            "start_min": start_min,
-            "end_min": end_min,
-            "label": label,
-        }
-        data["blocks"].append(entry)
-        _write(data)
-        return entry
-
-
-def get_blocks(target: date) -> list[dict]:
-    with _lock:
-        data = _read()
-        if data.get("date") != target.isoformat():
-            return []
-        return list(data.get("blocks", []))
-
-
-def delete_block(target: date, block_id: int) -> bool:
-    with _lock:
-        data = _ensure_today(_read(), target)
-        before = len(data["blocks"])
-        data["blocks"] = [b for b in data["blocks"] if b["id"] != block_id]
-        if len(data["blocks"]) != before:
-            _write(data)
-            return True
-        return False
 
 
 def delete_walkin(target: date, uid: str) -> bool:
