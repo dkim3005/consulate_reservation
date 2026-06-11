@@ -366,7 +366,7 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
     """
     name = name.strip()
     if _has_hangul(name):
-        return "ko", name, f"{name} 민원인님, {counter}번 창구로 오세요."
+        return "ko", name, f"{name}님, {counter}번 창구로 오세요."
 
     if _llm_endpoint() is not None:
         hangul = await _romanized_to_hangul(name)
@@ -376,15 +376,15 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
         if not hangul and has_strong_korean_surname(name):
             hangul = await _romanized_to_hangul(name, force=True)
         if hangul:
-            return "ko", name, f"{hangul} 민원인님, {counter}번 창구로 오세요."
+            return "ko", name, f"{hangul}님, {counter}번 창구로 오세요."
         if has_strong_korean_surname(name):
             # LLM unreachable entirely — still announce in Korean voice
-            return "ko", name, f"{name} 민원인님, {counter}번 창구로 오세요."
+            return "ko", name, f"{name}님, {counter}번 창구로 오세요."
         return "en", name, f"{name}, please proceed to counter number {counter}."
 
     # No LLM available — fall back to the surname table
     if looks_korean_romanized(name):
-        return "ko", name, f"{name} 민원인님, {counter}번 창구로 오세요."
+        return "ko", name, f"{name}님, {counter}번 창구로 오세요."
     return "en", name, f"{name}, please proceed to counter number {counter}."
 
 
