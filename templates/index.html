@@ -717,7 +717,18 @@
       gap: 8px;
       margin-top: 10px;
     }
-    .wi-toggle, .wi-add {
+    .wi-group-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-3);
+      letter-spacing: 0.02em;
+      padding-right: 4px;
+    }
+    .wi-group-label .en-sub { color: var(--text-3); font-size: 10.5px; font-weight: 500; }
+    .wi-add {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -732,7 +743,7 @@
       font-family: inherit;
       transition: background 0.12s, color 0.12s;
     }
-    .wi-toggle:hover, .wi-add:hover { background: var(--surface-2); color: var(--text); }
+    .wi-add:hover { background: var(--surface-2); color: var(--text); }
     .wi-add .en-sub { color: var(--text-3); font-size: 10.5px; font-weight: 500; }
     .wi-badge {
       background: var(--waiting);
@@ -1108,7 +1119,7 @@
     </div>
 
     <div class="walkin-bar">
-      <button class="wi-toggle" id="wi-toggle" type="button">📦 픽업·워크인 <span class="wi-badge" id="wi-badge" hidden>0</span></button>
+      <span class="wi-group-label">📦 픽업·워크인 <span class="en-sub">Pickup · Walk-in</span> <span class="wi-badge" id="wi-badge" hidden>0</span></span>
       <button class="wi-add" data-type="passport" type="button">+ 여권픽업 <span class="en-sub">Passport</span></button>
       <button class="wi-add" data-type="family" type="button">+ 가족관계픽업 <span class="en-sub">Family Cert.</span></button>
       <button class="wi-add wi-walkin-open" id="wi-walkin-open" type="button">+ 워크인 <span class="en-sub">Walk-in</span></button>
@@ -1561,7 +1572,6 @@
 
       const wiPanel = document.getElementById('wi-panel');
       const wiBadge = document.getElementById('wi-badge');
-      const wiToggle = document.getElementById('wi-toggle');
       const wiModal = document.getElementById('wi-modal');
       let lastRegistered = null;
 
@@ -1569,8 +1579,10 @@
         const pending = walkins.filter(function (w) { return w.state !== 'done'; }).length;
         wiBadge.textContent = pending;
         wiBadge.hidden = pending === 0;
+        // panel shows automatically whenever entries exist
+        wiPanel.hidden = walkins.length === 0;
         if (!walkins.length) {
-          wiPanel.innerHTML = '<div class="empty">접수된 픽업이 없습니다 · No pickups</div>';
+          wiPanel.innerHTML = '';
           return;
         }
         wiPanel.innerHTML = walkins.map(function (w) {
@@ -1586,10 +1598,6 @@
         }).join('');
       }
       renderWalkins();
-
-      wiToggle.addEventListener('click', function () {
-        wiPanel.hidden = !wiPanel.hidden;
-      });
 
       async function registerWalkin(wtype) {
         try {
