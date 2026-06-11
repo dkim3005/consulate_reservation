@@ -560,11 +560,10 @@ async def call_walkin(req: WalkinCall, role: str = Depends(require_session_api))
     entry = store.get_walkin(target, req.uid)
     if entry is None:
         raise HTTPException(status_code=404, detail="walk-in not found")
-    word = "픽업" if entry["kind"] == "pickup" else "워크인"
-    display = f"{word} {entry['uid']}"
-    # letter prefix included in speech (matches the "P-1"/"W-1" the visitor
-    # was told); full stop before the counter avoids "1번 1번" running together
-    text = f"{word} {entry['prefix']} {entry['num']}번. {req.counter}번 창구로 오세요."
+    # Calls say only the ticket number — no "픽업/워크인" wording (it can make
+    # walk-ins feel second-class). Queue-type labels stay on cards/lists only.
+    display = entry["uid"]
+    text = f"{entry['prefix']} {entry['num']}번. {req.counter}번 창구로 오세요."
     ok, err = await calls.enqueue_custom(f"walkin:{entry['uid']}", display, text, req.counter)
     if not ok:
         raise HTTPException(status_code=429, detail=err)
