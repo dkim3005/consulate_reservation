@@ -48,7 +48,9 @@ TTS_RATE = "-10%"  # slightly slower for lobby clarity
 # Google Cloud TTS (primary when key present) — Chirp3-HD, free tier 1M chars/mo.
 # Same persona name across locales keeps one announcer identity for KO and EN.
 GOOGLE_TTS_VOICE_KO = "ko-KR-Chirp3-HD-Zephyr"
-GOOGLE_TTS_VOICE_EN = "en-US-Chirp3-HD-Zephyr"
+# English uses Neural2 (deterministic): Chirp3-HD is generative and sometimes
+# letter-spells unfamiliar foreign names (e.g. "Saverimuthu" → S-a-v-e...)
+GOOGLE_TTS_VOICE_EN = "en-US-Neural2-F"
 GOOGLE_TTS_RATE = 0.9  # slightly slower for lobby clarity
 
 GOOGLE_TTS_VOLUME_GAIN_DB = 4.0  # lobby speakers — louder than default
