@@ -51,13 +51,13 @@ OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
 OPENAI_TTS_VOICE = "nova"
 OPENAI_TTS_INSTRUCTIONS_KO = (
     "당신은 20~30대 젊은 한국인 여성 아나운서입니다. 공공기관 대기실 안내방송을 합니다. "
-    "밝고 자연스러우면서도 안정적인 톤으로, 일정한 속도로 또박또박 명확하게 말하세요. "
-    "기계적이지 않게, 실제 아나운서처럼 자연스럽게."
+    "밝고 경쾌하고 발랄한 톤으로, 미소 띤 목소리로 말하되 또박또박 명확하게 발음하세요. "
+    "기계적이지 않게, 실제 아나운서처럼 생기 있고 자연스럽게."
 )
 OPENAI_TTS_INSTRUCTIONS_EN = (
-    "You are a young female announcer in her late 20s at a public office. "
-    "Deliver the waiting-room announcement in a bright, natural, yet steady tone — "
-    "even pace, clear articulation, like a real human announcer, not robotic."
+    "You are a cheerful young female announcer in her late 20s at a public office. "
+    "Deliver the waiting-room announcement in a bright, upbeat, smiling tone — "
+    "lively and friendly, yet clearly articulated, like a real human announcer."
 )
 
 QUEUE_GAP_SECONDS = 2     # silence between two consecutive calls

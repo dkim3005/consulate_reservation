@@ -420,6 +420,32 @@
 
       const announcer = new Audio();
 
+      // ---- "Ding-dong" chime (synthesized — no audio file needed) ----
+      let chimeCtx = null;
+      function playChime(done) {
+        if (!audioUnlocked) { done(); return; }
+        try {
+          chimeCtx = chimeCtx || new (window.AudioContext || window.webkitAudioContext)();
+          if (chimeCtx.state === 'suspended') chimeCtx.resume();
+          const now = chimeCtx.currentTime;
+          function tone(freq, t0, dur) {
+            const o = chimeCtx.createOscillator();
+            const g = chimeCtx.createGain();
+            o.type = 'sine';
+            o.frequency.value = freq;
+            g.gain.setValueAtTime(0.0001, now + t0);
+            g.gain.exponentialRampToValueAtTime(0.5, now + t0 + 0.03);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + t0 + dur);
+            o.connect(g).connect(chimeCtx.destination);
+            o.start(now + t0);
+            o.stop(now + t0 + dur + 0.05);
+          }
+          tone(880, 0, 0.5);        // 띵 (A5)
+          tone(659.25, 0.38, 0.7);  // 동 (E5)
+          setTimeout(done, 1200);
+        } catch (e) { done(); }
+      }
+
       // done() fires when the announcement (PLAY_COUNT plays) actually
       // finishes, so the overlay can hold for the full audio + a tail.
       const PLAY_COUNT = 3;
@@ -507,8 +533,10 @@
               clearTimeout(overlayTimer);
               overlayTimer = setTimeout(function () { overlay.classList.remove('show'); }, 3000);
             };
-            if (cur.audio_url) playRepeated(cur.audio_url, hideAfterTail);
-            else speakRepeatedFallback(cur.text, cur.lang, hideAfterTail);
+            playChime(function () {
+              if (cur.audio_url) playRepeated(cur.audio_url, hideAfterTail);
+              else speakRepeatedFallback(cur.text, cur.lang, hideAfterTail);
+            });
           }
         } catch (e) { /* next poll recovers */ }
       }
