@@ -519,6 +519,21 @@
       outline-offset: -1px;
       transition: opacity 0.15s, box-shadow 0.15s, transform 0.05s;
     }
+    /* Split (multi-lane) cards: keep only time + name; titles return on hover */
+    .card.laned .title-ko,
+    .card.laned .title-en { display: none; }
+    .card.laned .call-btn { display: none; }
+    @media (hover: hover) {
+      .card.laned:hover {
+        width: calc(100% - 4px) !important;
+        margin-left: 1px !important;
+        z-index: 6;
+        box-shadow: var(--shadow-md);
+      }
+      .card.laned:hover .title-ko { display: -webkit-box; }
+      .card.laned:hover .call-btn { display: inline-flex; }
+    }
+
     /* Spotlight: focus the card under the cursor, soften the rest.
        Waiting/Active cards stay bright — they're the states that matter. */
     @media (hover: hover) {
@@ -1154,7 +1169,7 @@
           </div>
         {% endif %}
         {% for c in timeline.cards %}
-          <div class="card col-{{ c.col }} {% if c.attendance %}state-{{ c.attendance }}{% endif %}"
+          <div class="card col-{{ c.col }} {% if c.lanes and c.lanes > 1 %}laned{% endif %} {% if c.attendance %}state-{{ c.attendance }}{% endif %}"
                style="grid-row: {{ c.row }} / span {{ c.span }}; grid-column: {{ c.col + 1 }};{% if c.lanes and c.lanes > 1 %} width: calc({{ (100 / c.lanes) | round(2) }}% - 3px); margin-left: calc({{ (100 * c.lane / c.lanes) | round(2) }}% + {{ 0 if c.lane == 0 else 3 }}px);{% endif %}"
                data-id="{{ c.id }}" data-start-iso="{{ c.start_iso }}" data-counter="{{ c.col }}" data-name="{{ c.name_ko or c.name_en }}">
             <div class="top-row">
