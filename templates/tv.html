@@ -355,7 +355,7 @@
     <div class="label"><span class="ic">📢</span>호출 · NOW CALLING</div>
     <div class="name" id="call-name">—</div>
     <div class="counter" id="call-counter">—</div>
-    <div class="sub">창구로 와 주시기 바랍니다 · Please proceed to the counter</div>
+    <div class="sub" id="call-sub">창구로 와 주시기 바랍니다</div>
   </div>
 
   <div class="cols">
@@ -541,7 +541,7 @@
           return '<div class="row">' +
             (it.time ? '<span class="time">' + it.time + '</span>' : '') +
             '<span class="name">' + it.name + '</span>' +
-            (showCounter ? '<span class="counter">' + it.counter + '번 창구</span>' : '') +
+            (showCounter ? '<span class="counter">' + (it.counterLabel || (it.counter + '번 창구')) + '</span>' : '') +
           '</div>';
         }).join('');
       }
@@ -562,7 +562,8 @@
           renderRows('list-active', d.active, 'cnt-active', false);
           renderRows('list-recent',
             (d.call.recent || []).map(function (c) {
-              return { time: '', name: c.name, counter: c.counter };
+              return { time: '', name: c.name,
+                       counterLabel: c.lang === 'en' ? ('Counter ' + c.counter) : (c.counter + '번 창구') };
             }),
             'cnt-recent', true);
 
@@ -570,7 +571,12 @@
           if (cur && cur.id !== lastCallId) {
             lastCallId = cur.id;
             document.getElementById('call-name').textContent = cur.name;
-            document.getElementById('call-counter').textContent = cur.counter + '번 창구';
+            const isEn = cur.lang === 'en';
+            document.getElementById('call-counter').textContent =
+              isEn ? ('Counter ' + cur.counter) : (cur.counter + '번 창구');
+            document.getElementById('call-sub').textContent =
+              isEn ? 'Please proceed to the counter'
+                   : '창구로 와 주시기 바랍니다';
             overlay.classList.add('show');
             clearTimeout(overlayTimer);
             // Overlay stays for the full announcement (2 plays) + 3s tail.
