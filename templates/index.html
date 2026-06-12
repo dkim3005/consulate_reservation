@@ -629,6 +629,20 @@
       box-shadow: var(--shadow-xs);
       opacity: 1;
     }
+    /* Container query: the action icons scale with the CARD's width, not
+       the viewport — hiding other counters widens the cards and grows the
+       icons; 5-lane slivers keep them compact. */
+    .view-table .card { container-type: inline-size; }
+    @container (min-width: 240px) {
+      .top-row .call-btn { font-size: 17px; padding: 6px 11px; }
+      .top-row .note-btn { font-size: 15px; padding: 6px 10px; }
+      .view-table .card.state-done .state-badge { width: 19px; height: 19px; font-size: 11px; }
+      .card:hover .top-row::before { font-size: 12.5px; padding: 4px 10px; }
+    }
+    @container (min-width: 420px) {
+      .top-row .call-btn { font-size: 21px; padding: 8px 14px; }
+      .top-row .note-btn { font-size: 18px; padding: 8px 12px; }
+    }
     @media (hover: hover) {
       .view-table .card:hover .top-row::before {
         font-size: 10.5px;
