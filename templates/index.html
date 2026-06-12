@@ -614,13 +614,31 @@
       z-index: 3;
     }
     .view-table .card .state-badge { display: none !important; }
-    /* done keeps a persistent (smaller) check — staff feedback: dimming
-       alone wasn't an obvious "finished" signal */
-    .view-table .card.state-done .state-badge {
-      display: inline-flex !important;
-      width: 15px;
-      height: 15px;
-      font-size: 9px;
+    /* Done cards are "covered": the visitor's info is no longer needed, so
+       it hides behind a big check. Hover peeks underneath; clicking cycles
+       the state as usual (reactivate). */
+    .view-table .card.state-done .name-ko,
+    .view-table .card.state-done .name-en,
+    .view-table .card.state-done .title-ko { visibility: hidden; }
+    .view-table .card.state-done::after {
+      content: '✓ 완료';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: 0.04em;
+      color: var(--done);
+      pointer-events: none;
+      z-index: 1;
+    }
+    @media (hover: hover) {
+      .view-table .card.state-done:hover .name-ko,
+      .view-table .card.state-done:hover .name-en,
+      .view-table .card.state-done:hover .title-ko { visibility: visible; }
+      .view-table .card.state-done:hover::after { content: none; }
     }
     /* floating buttons sit over card text — opaque so they stay legible */
     .view-table .card .top-row .call-btn,
@@ -636,7 +654,7 @@
     @container (min-width: 240px) {
       .top-row .call-btn { font-size: 17px; padding: 6px 11px; }
       .top-row .note-btn { font-size: 15px; padding: 6px 10px; }
-      .view-table .card.state-done .state-badge { width: 19px; height: 19px; font-size: 11px; }
+      .view-table .card.state-done::after { font-size: 17px; }
       .card:hover .top-row::before { font-size: 12.5px; padding: 4px 10px; }
     }
     @container (min-width: 420px) {
