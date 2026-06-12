@@ -1227,7 +1227,7 @@
     {% set tl_cols = "76px repeat(" ~ (columns|length) ~ ", 1fr)" %}
     <div class="view-table">
       <div class="tl-head" style="grid-template-columns: {{ tl_cols }};">
-        <div class="th time-col">시간<span class="en">Time</span></div>
+        <div class="th time-col"></div>
         {% for col in columns %}
           <div class="th col-{{ loop.index }}">{{ col }}</div>
         {% endfor %}
