@@ -791,17 +791,6 @@
       gap: 8px;
       margin-top: 10px;
     }
-    .wi-group-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12.5px;
-      font-weight: 700;
-      color: var(--text-3);
-      letter-spacing: 0.02em;
-      padding-right: 4px;
-    }
-    .wi-group-label .en-sub { color: var(--text-3); font-size: 10.5px; font-weight: 500; }
     .wi-add {
       display: inline-flex;
       align-items: center;
@@ -1285,10 +1274,10 @@
     </div>
 
     <div class="walkin-bar">
-      <span class="wi-group-label">📦 픽업·워크인 <span class="en-sub">Pickup · Walk-in</span> <span class="wi-badge" id="wi-badge" hidden>0</span></span>
       <button class="wi-add" data-type="passport" type="button">+ 여권픽업 <span class="en-sub">Passport</span></button>
       <button class="wi-add" data-type="family" type="button">+ 가족관계픽업 <span class="en-sub">Family Cert.</span></button>
       <button class="wi-add wi-walkin-open" id="wi-walkin-open" type="button">+ 워크인 <span class="en-sub">Walk-in</span></button>
+      <span class="wi-badge" id="wi-badge" hidden>0</span>
     </div>
     <div class="walkin-panel" id="wi-panel" hidden></div>
     <div class="wi-hint" id="wi-hint" hidden>ⓘ 픽업·워크인은 자동으로 사라지지 않습니다 — 응대가 끝나면 창구 직원이 카드의 ✕로 직접 삭제해 주세요. (Entries stay until counter staff removes them with ✕)</div>
@@ -1816,6 +1805,10 @@
         noteModal.hidden = false;
         document.getElementById('note-text').focus();
       }
+      if (noteModal) {
+      // note-list only exists inside the admin-only modal — binding it
+      // unguarded crashed the whole script for staff (passcode) sessions,
+      // leaving every later handler (walk-in buttons!) unbound.
       document.getElementById('note-list').addEventListener('click', async function (e) {
         const del = e.target.closest('.note-del');
         if (!del || !noteApptId) return;
@@ -1830,7 +1823,6 @@
           }
         } catch (e2) {}
       });
-      if (noteModal) {
       document.getElementById('note-cancel').addEventListener('click', function () {
         noteModal.hidden = true;
       });
