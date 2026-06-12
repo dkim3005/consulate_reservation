@@ -278,6 +278,41 @@
     .legend .dot.ns   { background: var(--noshow); }
     .legend .hint { color: var(--text-3); margin-left: auto; }
 
+    /* Per-counter visibility checkboxes (desktop timeline only) */
+    .col-toggles {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .col-toggles .ct-label { color: var(--text-3); font-weight: 700; margin-right: 2px; }
+    .col-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom: 2px solid var(--c, var(--border));
+      border-radius: 999px;
+      padding: 3px 9px 3px 7px;
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--text-2);
+      user-select: none;
+      transition: opacity 0.12s, background 0.12s;
+    }
+    .col-toggle input {
+      accent-color: var(--c, var(--accent));
+      margin: 0;
+      cursor: pointer;
+      width: 13px;
+      height: 13px;
+    }
+    .col-toggle:has(input:not(:checked)) { opacity: 0.4; background: var(--surface-2); }
+    @media (max-width: 980px) {
+      .col-toggles { display: none; }  /* grouped view has its own counter nav */
+    }
+
     .passcode {
       display: flex;
       align-items: center;
@@ -601,35 +636,28 @@
     /* English service name omitted in the timeline (space is tight);
        full bilingual text remains in the mobile/grouped view */
     .view-table .card .title-en { display: none; }
-    .view-table .card .top-row { margin-bottom: 3px; }
+    /* timeline cards: no time chip (the axis shows it) — actions/badges
+       gather in the top-right corner instead */
+    .view-table .card .top-row { margin-bottom: 3px; justify-content: flex-end; }
 
-    /* Dim toggle (per-device) */
-    body.dim-1 .tl-head .th.col-1,
-    body.dim-2 .tl-head .th.col-2,
-    body.dim-3 .tl-head .th.col-3,
-    body.dim-4 .tl-head .th.col-4,
-    body.dim-5 .tl-head .th.col-5,
-    body.dim-6 .tl-head .th.col-6 {
-      background: var(--surface-2);
-      color: var(--text-3);
+    /* Counter visibility (per-device): hidden counters collapse to a 0-width
+       grid track and the remaining columns share the freed space. Cards keep
+       their explicit grid-column, so tracks are zeroed instead of removed. */
+    body.hide-1 .timeline .card.col-1,
+    body.hide-2 .timeline .card.col-2,
+    body.hide-3 .timeline .card.col-3,
+    body.hide-4 .timeline .card.col-4,
+    body.hide-5 .timeline .card.col-5,
+    body.hide-6 .timeline .card.col-6 {
+      display: none;
     }
-    body.dim-1 .tl-head .th.col-1::after,
-    body.dim-2 .tl-head .th.col-2::after,
-    body.dim-3 .tl-head .th.col-3::after,
-    body.dim-4 .tl-head .th.col-4::after,
-    body.dim-5 .tl-head .th.col-5::after,
-    body.dim-6 .tl-head .th.col-6::after {
-      background: transparent;
-    }
-    body.dim-1 .timeline .card.col-1,
-    body.dim-2 .timeline .card.col-2,
-    body.dim-3 .timeline .card.col-3,
-    body.dim-4 .timeline .card.col-4,
-    body.dim-5 .timeline .card.col-5,
-    body.dim-6 .timeline .card.col-6 {
-      opacity: 0.28;
-      filter: blur(1.2px);
-      transition: opacity 0.2s, filter 0.2s;
+    body.hide-1 .tl-head .th.col-1,
+    body.hide-2 .tl-head .th.col-2,
+    body.hide-3 .tl-head .th.col-3,
+    body.hide-4 .tl-head .th.col-4,
+    body.hide-5 .tl-head .th.col-5,
+    body.hide-6 .tl-head .th.col-6 {
+      visibility: hidden;
     }
 
     .tl-lunch {
@@ -1270,6 +1298,16 @@
       <span class="pill"><span class="dot act"></span>Active</span>
       <span class="pill"><span class="dot done"></span>Done</span>
       <span class="pill"><span class="dot ns"></span>No-show (auto, 20m late)</span>
+      {% if columns %}
+      <span class="col-toggles" role="group" aria-label="창구 표시 · Show counters">
+        <span class="ct-label">창구 표시</span>
+        {% for col in columns %}
+          <label class="col-toggle col-{{ loop.index }}" title="{{ col }}">
+            <input type="checkbox" data-col="{{ loop.index }}" checked>{{ loop.index }}
+          </label>
+        {% endfor %}
+      </span>
+      {% endif %}
       <span class="hint">Tap to cycle · no-show applies automatically</span>
     </div>
 
@@ -1318,7 +1356,6 @@
                style="grid-row: {{ c.row }} / span {{ c.span }}; grid-column: {{ c.col + 1 }};{% if c.lanes and c.lanes > 1 %} width: calc({{ (100 / c.lanes) | round(2) }}% - 3px); margin-left: calc({{ (100 * c.lane / c.lanes) | round(2) }}% + {{ 0 if c.lane == 0 else 3 }}px);{% endif %}"
                data-id="{{ c.id }}" data-start-iso="{{ c.start_iso }}" data-counter="{{ c.col }}" data-name="{{ c.name_ko or c.name_en }}">
             <div class="top-row">
-              <span class="duration">{{ c.time_range }}</span>
               {% if is_admin %}<button class="note-btn {% if c.notes %}has-note{% endif %}" type="button"
                       title="{% for n in c.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not c.notes %}메모 추가 · Add note{% endif %}">📝{% if c.notes %} {{ c.notes|length }}{% endif %}</button>{% endif %}
               {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
@@ -1495,33 +1532,52 @@
 
   <script>
     (function () {
-      // ---- Per-counter dim toggle (wide/table view, per-device) ----
-      const DIM_KEY = 'consulate-dim-counters';
-      function getDimSet() {
-        try { return new Set(JSON.parse(localStorage.getItem(DIM_KEY) || '[]')); }
+      // ---- Per-counter visibility (wide/table view, per-device) ----
+      // Hidden counters collapse to a 0px grid track; the rest expand to
+      // fill. Tracks are zeroed (not removed) because cards carry explicit
+      // grid-column indexes.
+      const HIDE_KEY = 'consulate-hidden-counters';
+      const COL_COUNT = document.querySelectorAll('.tl-head .th[class*="col-"]').length;
+      function getHidden() {
+        try { return new Set(JSON.parse(localStorage.getItem(HIDE_KEY) || '[]')); }
         catch (e) { return new Set(); }
       }
-      function saveDimSet(s) {
-        try { localStorage.setItem(DIM_KEY, JSON.stringify(Array.from(s))); } catch (e) {}
+      function saveHidden(s) {
+        try { localStorage.setItem(HIDE_KEY, JSON.stringify(Array.from(s))); } catch (e) {}
       }
-      function applyDim() {
-        const dim = getDimSet();
-        for (let i = 1; i <= 6; i++) {
-          document.body.classList.toggle('dim-' + i, dim.has(i));
+      function applyCols() {
+        const hidden = getHidden();
+        if (COL_COUNT) {
+          const tmpl = '76px ' + Array.from({ length: COL_COUNT }, function (_, i) {
+            return hidden.has(i + 1) ? '0px' : '1fr';
+          }).join(' ');
+          document.querySelectorAll('.tl-head, .timeline').forEach(function (el) {
+            el.style.gridTemplateColumns = tmpl;
+          });
         }
+        for (let i = 1; i <= 6; i++) {
+          document.body.classList.toggle('hide-' + i, hidden.has(i));
+        }
+        document.querySelectorAll('.col-toggle input').forEach(function (cb) {
+          cb.checked = !hidden.has(parseInt(cb.dataset.col, 10));
+        });
       }
-      applyDim();
+      function toggleCol(n) {
+        const hidden = getHidden();
+        if (hidden.has(n)) hidden.delete(n); else hidden.add(n);
+        saveHidden(hidden);
+        applyCols();
+      }
+      applyCols();
+      document.querySelectorAll('.col-toggle input').forEach(function (cb) {
+        cb.addEventListener('change', function () { toggleCol(parseInt(cb.dataset.col, 10)); });
+      });
       document.querySelectorAll('.tl-head .th').forEach(function (th) {
         const m = th.className.match(/col-(\d+)/);
         if (!m) return;
         const n = parseInt(m[1], 10);
-        th.title = '클릭하여 흐리게 / 원복';
-        th.addEventListener('click', function () {
-          const dim = getDimSet();
-          if (dim.has(n)) dim.delete(n); else dim.add(n);
-          saveDimSet(dim);
-          applyDim();
-        });
+        th.title = '클릭하여 숨기기 (상단 체크박스로 다시 표시)';
+        th.addEventListener('click', function () { toggleCol(n); });
       });
 
       // ---- Sticky header offset (lets thead stick just below the page header) ----
