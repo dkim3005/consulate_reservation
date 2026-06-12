@@ -757,10 +757,13 @@
       .title-row h1 { font-size: 18px; }
       /* Phones: the header eats half the screen when sticky — let it scroll
          away with the page and trim everything non-essential. */
-      body { padding: 10px 12px 12px; }
+      body {
+        padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+                 12px max(12px, env(safe-area-inset-left));
+      }
       .page-header {
         position: static;
-        margin: -10px -12px 12px;
+        margin: min(-10px, calc(env(safe-area-inset-top) * -1)) -12px 12px;
         padding: 10px 14px 10px;
       }
       .top-row { margin-bottom: 6px; }
@@ -1196,6 +1199,16 @@
       }
       .nav-pill .periods a:active { background: var(--surface-2); color: var(--text); }
       .nav-pill .periods .off { opacity: 0.3; }
+    }
+    @media (max-width: 540px) {
+      /* Phones: the page header scrolls away, so the nav docks to the very
+         top of the viewport instead of hovering at the old header offset. */
+      .counter-nav {
+        top: env(safe-area-inset-top, 0px);
+        margin: -4px -12px 12px;
+        padding: 8px 12px 9px;
+      }
+      .counter-section, .period-label { scroll-margin-top: 86px; }
     }
 
     footer {
