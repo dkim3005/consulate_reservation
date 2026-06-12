@@ -233,7 +233,8 @@ def _build_timeline(grouped: dict[str, list[dict]], columns: list[str]) -> dict 
     if lo <= 12 * 60 and hi >= 13 * 60:
         lunch = {"row": (12 * 60 - lo) // TIMELINE_SLOT_MIN + 1, "span": 60 // TIMELINE_SLOT_MIN}
 
-    return {"slots": total_slots, "labels": labels, "cards": items, "lunch": lunch}
+    return {"slots": total_slots, "labels": labels, "cards": items, "lunch": lunch,
+            "start_min": lo}
 
 
 def _split_am_pm(items: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -302,6 +303,7 @@ async def _build_payload(role: str) -> dict:
         "is_admin": role == auth.ROLE_ADMIN,
         "passcode": passcode,
         "date_label": target.strftime("%Y-%m-%d (%a)"),
+        "is_today": target == now_local.date(),
         "updated_at": now_local.strftime("%H:%M:%S"),
         "timezone": LOCAL_TZ,
         "total": len(appts),

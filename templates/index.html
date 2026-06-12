@@ -503,6 +503,25 @@
       pointer-events: none;
       z-index: 0;
     }
+    /* Current-time indicator (today only), calendar-style */
+    .now-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      border-top: 2px solid var(--noshow);
+      z-index: 4;
+      pointer-events: none;
+    }
+    .now-line::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: -5px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--noshow);
+    }
     .tl-label {
       grid-column: 1;
       color: var(--text-3);
@@ -1237,6 +1256,10 @@
           <div class="tl-rule" style="grid-row: {{ lb.row }};"></div>
           <div class="tl-label" style="grid-row: {{ lb.row }} / span 6;">{{ lb.text }}</div>
         {% endfor %}
+        {% if is_today %}
+          <div class="now-line" id="nowLine" data-start-min="{{ timeline.start_min }}"
+               data-slots="{{ timeline.slots }}" hidden></div>
+        {% endif %}
         {% if timeline.lunch %}
           <div class="tl-lunch" style="grid-row: {{ timeline.lunch.row }} / span {{ timeline.lunch.span }}; grid-column: 2 / -1;">
             <div class="lunch-top">
@@ -1545,6 +1568,25 @@
       syncAutoStates();
       setInterval(syncAutoStates, 60000);
       window.syncAutoStates = syncAutoStates;  // expose for manual verification
+
+      // ---- Current-time line on the timeline (today only) ----
+      const nowLine = document.getElementById('nowLine');
+      if (nowLine) {
+        const tlStartMin = parseInt(nowLine.dataset.startMin, 10);
+        const tlSlots = parseInt(nowLine.dataset.slots, 10);
+        const SLOT_MIN = 5;  // must match grid-auto-rows (1 row = 5 minutes)
+        function positionNowLine() {
+          const d = new Date();
+          const min = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+          const rowH = parseFloat(getComputedStyle(nowLine.parentElement).gridAutoRows) || 32;
+          const top = (min - tlStartMin) / SLOT_MIN * rowH;
+          if (top < 0 || top > tlSlots * rowH) { nowLine.hidden = true; return; }
+          nowLine.style.top = top + 'px';
+          nowLine.hidden = false;
+        }
+        positionNowLine();
+        setInterval(positionNowLine, 30000);
+      }
 
       // ---- Call toast stack (all roles see announcements) ----
       // Each toast is its own element: simultaneous messages stack instead of
