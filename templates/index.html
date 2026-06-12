@@ -503,24 +503,44 @@
       pointer-events: none;
       z-index: 0;
     }
-    /* Current-time indicator (today only), calendar-style */
+    /* Current-time indicator (today only): confined to the time-axis column —
+       a short tick plus the live HH:MM, never entering the counter columns. */
     .now-line {
       position: absolute;
       left: 0;
-      right: 0;
+      width: 70px;   /* time-axis column (76px) minus the grid gap */
       border-top: 2px solid var(--noshow);
-      z-index: 4;
+      z-index: 2;
       pointer-events: none;
     }
     .now-line::before {
       content: "";
       position: absolute;
-      left: 0;
-      top: -5px;
-      width: 8px;
-      height: 8px;
+      right: -3px;
+      top: -4px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: var(--noshow);
+      animation: nowpulse 2.4s ease-out infinite;
+    }
+    @keyframes nowpulse {
+      0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--noshow) 65%, transparent); }
+      75%  { box-shadow: 0 0 0 9px color-mix(in srgb, var(--noshow) 0%, transparent); }
+      100% { box-shadow: 0 0 0 0 transparent; }
+    }
+    .now-line::after {
+      content: attr(data-time);
+      position: absolute;
+      left: 2px;
+      top: -19px;
+      color: var(--noshow);
+      font-size: 12px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      background: var(--bg);
+      padding: 1px 4px;
+      border-radius: 4px;
     }
     .tl-label {
       grid-column: 1;
@@ -1575,13 +1595,23 @@
         const tlStartMin = parseInt(nowLine.dataset.startMin, 10);
         const tlSlots = parseInt(nowLine.dataset.slots, 10);
         const SLOT_MIN = 5;  // must match grid-auto-rows (1 row = 5 minutes)
+        // preview aid: ?now=HH:MM pins the line at a fake time
+        const fakeNow = new URLSearchParams(location.search).get('now');
         function positionNowLine() {
-          const d = new Date();
-          const min = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+          let min;
+          if (fakeNow && /^\d{1,2}:\d{2}$/.test(fakeNow)) {
+            min = parseInt(fakeNow, 10) * 60 + parseInt(fakeNow.split(':')[1], 10);
+          } else {
+            const d = new Date();
+            min = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+          }
           const rowH = parseFloat(getComputedStyle(nowLine.parentElement).gridAutoRows) || 32;
           const top = (min - tlStartMin) / SLOT_MIN * rowH;
           if (top < 0 || top > tlSlots * rowH) { nowLine.hidden = true; return; }
           nowLine.style.top = top + 'px';
+          const mm = Math.floor(min);
+          nowLine.dataset.time =
+            String(Math.floor(mm / 60)).padStart(2, '0') + ':' + String(mm % 60).padStart(2, '0');
           nowLine.hidden = false;
         }
         positionNowLine();
