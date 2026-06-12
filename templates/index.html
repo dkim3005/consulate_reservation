@@ -313,45 +313,6 @@
       .col-toggles { display: none; }  /* grouped view has its own counter nav */
     }
 
-    .passcode {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: var(--passcode-bg);
-      color: white;
-      padding: 9px 13px;
-      border-radius: 12px;
-      box-shadow: var(--shadow-md);
-    }
-    .passcode .lock { font-size: 18px; line-height: 1; }
-    .passcode .label {
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      color: #cbd5e1;
-      text-transform: uppercase;
-      font-weight: 600;
-      line-height: 1.2;
-    }
-    .passcode .digits {
-      display: flex;
-      gap: 4px;
-      margin-top: 4px;
-      font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
-    }
-    .passcode .digit {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 22px;
-      height: 26px;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.20);
-      border-radius: 5px;
-      font-size: 16px;
-      font-weight: 700;
-      color: white;
-      font-variant-numeric: tabular-nums;
-    }
 
     .col-1 { --c: var(--c1); }
     .col-2 { --c: var(--c2); }
@@ -819,8 +780,6 @@
       .card .name-ko { font-size: 16px; }
       .card .name-en { font-size: 13px; }
       .card .title-ko { font-size: 13px; }
-      .passcode { padding: 8px 10px; }
-      .passcode .digit { width: 18px; height: 22px; font-size: 13px; }
     }
     @media (max-width: 540px) {
       .logout-text { display: none; }
@@ -1298,15 +1257,7 @@
       </div>
       <div class="top-actions">
         {% if is_admin and passcode %}
-          <div class="passcode" title="시큐리티에 전달할 4자리 코드. 매일 자동 변경.">
-            <span class="lock">🔒</span>
-            <div>
-              <div class="label">PASSCODE</div>
-              <div class="digits">
-                {% for d in passcode %}<span class="digit">{{ d }}</span>{% endfor %}
-              </div>
-            </div>
-          </div>
+          <button class="logout-link" id="passcode-open" type="button" title="오늘의 시큐리티 비밀번호 보기">🔑 <span class="logout-text">Passcode</span></button>
         {% endif %}
         {% if is_admin %}
           <a class="logout-link" href="/tv" target="_blank" rel="noopener" title="TV 대기 화면">📺 <span class="logout-text">TV</span></a>
@@ -1565,6 +1516,22 @@
     </div>
   </div>
 
+  {% if is_admin and passcode %}
+  <div class="call-modal-backdrop" id="passcode-modal" hidden>
+    <div class="call-modal">
+      <div class="wi-num-display">
+        <div class="big">{{ passcode }}</div>
+        <div class="typ">오늘의 시큐리티 비밀번호</div>
+        <div class="hint">시큐리티에게 전달해주세요.<br>영업일이 끝나면 자동으로 새 번호로 바뀝니다.</div>
+      </div>
+      <div class="cm-actions">
+        <button type="button" class="cm-cancel" id="passcode-close">닫기 · Close</button>
+        <button type="button" class="cm-call" id="passcode-copy">복사 · Copy</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <footer>
     <div class="copy">© 2026 주토론토총영사관 예약 대시보드</div>
     문의 · Inquiries <a href="mailto:dojkim25@mofa.go.kr">dojkim25@mofa.go.kr</a><br>
@@ -1621,6 +1588,29 @@
         th.title = '클릭하여 숨기기 (상단 체크박스로 다시 표시)';
         th.addEventListener('click', function () { toggleCol(n); });
       });
+
+      // ---- Passcode reveal (admin only; elements absent otherwise) ----
+      const pcBtn = document.getElementById('passcode-open');
+      if (pcBtn) {
+        const pcModal = document.getElementById('passcode-modal');
+        const pcCopy = document.getElementById('passcode-copy');
+        pcBtn.addEventListener('click', function () { pcModal.hidden = false; });
+        document.getElementById('passcode-close').addEventListener('click', function () {
+          pcModal.hidden = true;
+        });
+        pcModal.addEventListener('click', function (e) {
+          if (e.target === pcModal) pcModal.hidden = true;
+        });
+        pcCopy.addEventListener('click', function () {
+          const code = pcModal.querySelector('.big').textContent.trim();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(code).then(function () {
+              pcCopy.textContent = '복사됨 ✓';
+              setTimeout(function () { pcCopy.textContent = '복사 · Copy'; }, 1600);
+            }).catch(function () {});
+          }
+        });
+      }
 
       // ---- Sticky header offset (lets thead stick just below the page header) ----
       function syncHeaderH() {
