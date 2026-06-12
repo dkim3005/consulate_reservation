@@ -621,18 +621,31 @@
     .view-table .card.state-done .name-en,
     .view-table .card.state-done .title-ko { visibility: hidden; }
     .view-table .card.state-done::after {
-      content: '✓ 완료';
+      content: '✓';
       position: absolute;
       inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 14px;
-      letter-spacing: 0.04em;
+      font-size: 20px;
       color: var(--done);
+      opacity: 0.45;
       pointer-events: none;
       z-index: 1;
+    }
+    /* one-time flip when a card is marked done (class added by JS only at
+       the moment of the state change — page loads don't replay it) */
+    @keyframes card-flip-in {
+      from { transform: perspective(600px) rotateY(90deg); }
+      to   { transform: perspective(600px) rotateY(0deg); }
+    }
+    .view-table .card.state-done.flipping {
+      animation: card-flip-in 0.4s ease-out;
+      backface-visibility: hidden;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .view-table .card.state-done.flipping { animation: none; }
     }
     @media (hover: hover) {
       .view-table .card.state-done:hover .name-ko,
@@ -654,7 +667,7 @@
     @container (min-width: 240px) {
       .top-row .call-btn { font-size: 17px; padding: 6px 11px; }
       .top-row .note-btn { font-size: 15px; padding: 6px 10px; }
-      .view-table .card.state-done::after { font-size: 17px; }
+      .view-table .card.state-done::after { font-size: 28px; }
       .card:hover .top-row::before { font-size: 12.5px; padding: 4px 10px; }
     }
     @container (min-width: 420px) {
@@ -1689,8 +1702,13 @@
       }
       function applyEverywhere(id, state) {
         document.querySelectorAll('.card[data-id="' + id + '"]').forEach(function (c) {
+          const wasDone = c.classList.contains('state-done');
           ['waiting', 'active', 'done', 'noshow'].forEach(function (s) { c.classList.remove('state-' + s); });
           if (state) c.classList.add('state-' + state);
+          if (state === 'done' && !wasDone) {
+            c.classList.add('flipping');
+            setTimeout(function () { c.classList.remove('flipping'); }, 450);
+          }
           const badge = c.querySelector('.state-badge');
           if (badge) badge.textContent = LABELS[state] || '';
         });
