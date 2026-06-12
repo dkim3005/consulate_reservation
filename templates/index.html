@@ -636,30 +636,43 @@
     /* English service name omitted in the timeline (space is tight);
        full bilingual text remains in the mobile/grouped view */
     .view-table .card .title-en { display: none; }
-    /* timeline cards: no time chip (the axis shows it) — actions/badges
-       gather in the top-right corner instead */
-    .view-table .card .top-row { margin-bottom: 3px; justify-content: flex-end; }
-    /* Hover actions float over the top-right corner instead of joining the
-       flow — narrow (5-lane) cards have fixed heights, and growing the
-       top-row used to push the visitor's name out of view. When not
-       hovered the wrapper is transparent (display:contents), so persistent
-       indicators (📝 has-note, 📢 broadcasting) sit inline as before. */
+    /* timeline cards: the entire top-row floats over the top-right corner —
+       no reserved line, the name starts at the very top of the card. The
+       state icon is hidden here (tint + outline already encode it); hovering
+       reveals a small state word chip plus the admin action buttons. Cards
+       are height-locked to the axis, so nothing may push the name around.
+       Each child styles itself, so an empty floating row shows nothing. */
     .card-actions { display: contents; }
+    .view-table .card { position: relative; }
+    .view-table .card .top-row {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      margin: 0;
+      flex-wrap: nowrap;
+      z-index: 3;
+    }
+    .view-table .card .state-badge { display: none !important; }
+    /* floating buttons sit over card text — opaque so they stay legible */
+    .view-table .card .top-row .call-btn,
+    .view-table .card .top-row .note-btn {
+      background: var(--surface);
+      box-shadow: var(--shadow-xs);
+      opacity: 1;
+    }
     @media (hover: hover) {
-      .view-table .card { position: relative; }
-      .view-table .card:hover .card-actions {
-        display: flex;
-        gap: 4px;
-        position: absolute;
-        top: 3px;
-        right: 3px;
-        z-index: 3;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 9px;
-        padding: 2px;
-        box-shadow: var(--shadow-md);
+      .view-table .card:hover .top-row::before {
+        font-size: 10.5px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 999px;
+        color: #fff;
+        line-height: 1;
       }
+      .view-table .card.state-waiting:hover .top-row::before { content: '대기중'; background: var(--waiting); }
+      .view-table .card.state-active:hover  .top-row::before { content: '응대중'; background: var(--active); }
+      .view-table .card.state-done:hover    .top-row::before { content: '완료'; background: var(--done); }
+      .view-table .card.state-noshow:hover  .top-row::before { content: '노쇼'; background: var(--noshow); }
     }
 
     /* Counter visibility (per-device): hidden counters collapse to a 0-width
