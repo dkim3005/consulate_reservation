@@ -527,7 +527,6 @@
     /* Split (multi-lane) cards: keep only time + name; titles return on hover */
     .card.laned .title-ko,
     .card.laned .title-en { display: none; }
-    .card.laned .call-btn { display: none; }
     @media (hover: hover) {
       .card.laned:hover {
         width: calc(100% - 4px) !important;
@@ -536,7 +535,6 @@
         box-shadow: var(--shadow-md);
       }
       .card.laned:hover .title-ko { display: -webkit-box; }
-      .card.laned:hover .call-btn { display: inline-flex; }
     }
 
     /* Spotlight: focus the card under the cursor, soften the rest.
@@ -868,6 +866,14 @@
       transition: background 0.12s, border-color 0.12s;
     }
     .call-btn:hover { background: var(--surface-2); border-color: var(--accent); }
+    /* On reservation cards the call button stays hidden (like note-btn) and
+       appears on card hover; while broadcasting (.called) it must stay visible.
+       Walk-in panel buttons are unaffected — calling is the primary action there. */
+    .card .call-btn { display: none; }
+    .card .call-btn.called { display: inline-flex; }
+    @media (hover: hover) {
+      .card:hover .call-btn { display: inline-flex; }
+    }
     .call-btn.called {
       background: var(--active-soft);
       border-color: var(--active);
