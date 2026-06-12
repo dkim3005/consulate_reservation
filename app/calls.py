@@ -181,25 +181,41 @@ CLASSIFY_PROMPT = (
     "'David Smith' → NOT_KOREAN.\n"
     "- A standalone Western given name → NOT_KOREAN, even though it could be transliterated. "
     "Examples: 'Joseph' → NOT_KOREAN, 'Daniel' → NOT_KOREAN, 'Sarah' → NOT_KOREAN.\n"
-    "- Korean examples: 'Eunsil Kim' → 김은실, 'Kibum Jung' → 정기범, 'Da Jeong Kim' → 김다정."
+    "- The name may be written family-name-first OR given-name-first; detect which token is "
+    "the Korean surname and always put it first in the Hangul output.\n"
+    "- A clear Korean surname with a foreign given name (e.g. Koryo-saram) is still Korean: "
+    "transliterate the given name phonetically. Example: 'Nam Polina' → 남폴리나.\n"
+    "- Korean examples: 'Eunsil Kim' → 김은실, 'Kibum Jung' → 정기범, 'Da Jeong Kim' → 김다정, "
+    "'Park Jisoo' → 박지수."
 )
 FORCE_CONVERT_PROMPT = (
     "You convert romanized Korean person names to Hangul. "
-    "The given name IS a Korean person's name. "
-    "Reply with ONLY the Hangul name, family name first, no explanation."
+    "The given name IS a Korean person's name. The input may be written "
+    "family-name-first or given-name-first; the Hangul output always starts "
+    "with the family name (e.g. 'Nam Polina' → 남폴리나, 'Eunsil Kim' → 김은실). "
+    "Reply with ONLY the Hangul name, no explanation."
 )
 
 # Bump when classification logic/prompt changes — invalidates old cached verdicts
-NAME_CACHE_VERSION = "v2"
+NAME_CACHE_VERSION = "v3"
 
 
 def _llm_endpoint() -> tuple[str, str, str] | None:
     """Returns (url, api_key, model) for name classification.
 
-    DeepSeek primary (with the v2 prompt it scores identically to gpt-4o-mini
-    on the consulate test set), OpenAI fallback. TTS is unrelated — that stays
-    on OpenAI regardless.
+    Gemini primary when the Google key is present — one GCP API key then
+    covers both TTS and name conversion (requires the Generative Language
+    API enabled on the key's project, alongside Cloud Text-to-Speech).
+    DeepSeek and OpenAI remain as fallbacks for keys without Gemini access.
     """
+    # gemini-2.5-flash-lite: non-thinking (safe with tiny max_tokens), free
+    # tier covers it, and 2.0-flash was shut down 2026-06-01.
+    if GOOGLE_TTS_API_KEY:
+        return (
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+            GOOGLE_TTS_API_KEY,
+            "gemini-2.5-flash-lite",
+        )
     if DEEPSEEK_API_KEY:
         return "https://api.deepseek.com/chat/completions", DEEPSEEK_API_KEY, "deepseek-chat"
     if OPENAI_API_KEY:
@@ -231,11 +247,17 @@ async def _llm(system_prompt: str, user_content: str,
                     },
                     timeout=12.0,
                 )
-            return r.json()["choices"][0]["message"]["content"].strip()
+            data = r.json()
+            # error payloads are a dict {"error": ...} or even a list of them —
+            # treat anything without choices as a failed attempt, not a crash
+            if r.status_code == 200 and isinstance(data, dict) and data.get("choices"):
+                return data["choices"][0]["message"]["content"].strip()
+            log.warning("llm HTTP %s (attempt %d) for %r: %s",
+                        r.status_code, attempt + 1, user_content, str(data)[:150])
         except Exception as e:  # noqa: BLE001
             log.warning("llm call failed (attempt %d) for %r: %s", attempt + 1, user_content, e)
-            if attempt == 0:
-                await asyncio.sleep(0.8)
+        if attempt == 0:
+            await asyncio.sleep(0.8)
     return None
 
 
@@ -408,6 +430,10 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
         hangul_only = " ".join(re.findall(r"[가-힣]+", name))
         return "ko", hangul_only, f"{_spell_hangul_name(hangul_only)} 님, {counter}번 창구로 오세요."
 
+    # ALL-CAPS Latin names mangle TTS in every branch (Korean voice included),
+    # so normalize before classification/announcement, not just for English.
+    name = normalize_caps(name)
+
     if _llm_endpoint() is not None:
         hangul = await _romanized_to_hangul(name)
         # Backstop: unambiguous Korean surname (Kim/Jung/Park/...) but the
@@ -420,13 +446,11 @@ async def _prepare_announcement(name: str, counter: int) -> tuple[str, str, str]
         if has_strong_korean_surname(name):
             # LLM unreachable entirely — still announce in Korean voice
             return "ko", name, f"{name} 님, {counter}번 창구로 오세요."
-        name = normalize_caps(name)
         return "en", name, f"{name}, please proceed to counter number {counter}."
 
     # No LLM available — fall back to the surname table
     if looks_korean_romanized(name):
         return "ko", name, f"{name} 님, {counter}번 창구로 오세요."
-    name = normalize_caps(name)
     return "en", name, f"{name}, please proceed to counter number {counter}."
 
 
@@ -555,7 +579,13 @@ async def _worker() -> None:
     q = _ensure_queue()
     while True:
         call = await q.get()
-        call["audio_url"] = await _ensure_tts(call["text"], call["lang"])
+        # a single bad call must never kill the worker — broadcasts would
+        # silently stop until the next service restart
+        try:
+            call["audio_url"] = await _ensure_tts(call["text"], call["lang"])
+        except Exception as e:  # noqa: BLE001
+            log.error("tts unexpected failure for %r: %s", call.get("text", "")[:40], e)
+            call["audio_url"] = None  # TV falls back to device voice
         call["started_at"] = time.time()
         _current = call
         await asyncio.sleep(CALL_SLOT_SECONDS)

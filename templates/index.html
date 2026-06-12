@@ -755,6 +755,20 @@
       .logout-text { display: none; }
       .logout-link { padding: 7px 9px; }
       .title-row h1 { font-size: 18px; }
+      /* Phones: the header eats half the screen when sticky — let it scroll
+         away with the page and trim everything non-essential. */
+      body { padding: 10px 12px 12px; }
+      .page-header {
+        position: static;
+        margin: -10px -12px 12px;
+        padding: 10px 14px 10px;
+      }
+      .top-row { margin-bottom: 6px; }
+      .brand img { width: 30px; height: 30px; }
+      .brand .en { display: none; }
+      .legend { display: none; }
+      .meta .chip { padding: 3px 8px; }
+      .walkin-bar { margin-top: 6px; }
     }
 
     .empty-state {
@@ -912,6 +926,11 @@
     .card .call-btn.called { display: inline-flex; }
     @media (hover: hover) {
       .card:hover .call-btn { display: inline-flex; }
+    }
+    /* Touch devices have no hover — keep the broadcast button always visible
+       (it only renders for admins). */
+    @media (hover: none) {
+      .card .call-btn { display: inline-flex; }
     }
     .call-btn.called {
       background: var(--active-soft);
