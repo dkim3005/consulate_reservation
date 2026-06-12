@@ -1274,13 +1274,13 @@
     </div>
 
     <div class="walkin-bar">
-      <button class="wi-add" data-type="passport" type="button">+ 여권픽업 <span class="en-sub">Passport</span></button>
-      <button class="wi-add" data-type="family" type="button">+ 가족관계픽업 <span class="en-sub">Family Cert.</span></button>
-      <button class="wi-add wi-walkin-open" id="wi-walkin-open" type="button">+ 워크인 <span class="en-sub">Walk-in</span></button>
+      <button class="wi-add" data-type="passport" type="button">+ Passport Pickup</button>
+      <button class="wi-add" data-type="family" type="button">+ Family Cert. Pickup</button>
+      <button class="wi-add wi-walkin-open" id="wi-walkin-open" type="button">+ Walk-in</button>
       <span class="wi-badge" id="wi-badge" hidden>0</span>
     </div>
     <div class="walkin-panel" id="wi-panel" hidden></div>
-    <div class="wi-hint" id="wi-hint" hidden>ⓘ 픽업·워크인은 자동으로 사라지지 않습니다 — 응대가 끝나면 창구 직원이 카드의 ✕로 직접 삭제해 주세요. (Entries stay until counter staff removes them with ✕)</div>
+    <div class="wi-hint" id="wi-hint" hidden>ⓘ Entries stay until counter staff removes them with ✕ (픽업·워크인은 자동으로 사라지지 않습니다 — 응대가 끝나면 창구 직원이 카드의 ✕로 삭제)</div>
   </div>
 
   {% if timeline %}
@@ -1458,16 +1458,16 @@
 
   <div class="call-modal-backdrop" id="wi-cat-modal" hidden>
     <div class="call-modal">
-      <div class="cm-name">워크인 종류 <span style="font-size:12px; color:var(--text-3); font-weight:500;">Walk-in type</span></div>
-      <div class="cm-sub">예약 없이 방문한 민원 종류를 선택하세요</div>
+      <div class="cm-name">Walk-in type <span style="font-size:12px; color:var(--text-3); font-weight:500;">워크인 종류</span></div>
+      <div class="cm-sub">Select the visitor's service type</div>
       <div class="wi-cat-grid">
-        <button type="button" data-type="emergency">긴급여권<span class="en-sub">Emergency Passport</span></button>
-        <button type="button" data-type="notary">공증<span class="en-sub">Notary</span></button>
-        <button type="button" data-type="family_misc">가족·국적<span class="en-sub">Family / Nationality</span></button>
-        <button type="button" data-type="others">기타<span class="en-sub">Others</span></button>
+        <button type="button" data-type="emergency">Emergency Passport<span class="en-sub">긴급여권</span></button>
+        <button type="button" data-type="notary">Notary<span class="en-sub">공증</span></button>
+        <button type="button" data-type="family_misc">Family / Nationality<span class="en-sub">가족·국적</span></button>
+        <button type="button" data-type="others">Others<span class="en-sub">기타</span></button>
       </div>
       <div class="cm-actions">
-        <button type="button" class="cm-cancel" id="wi-cat-cancel">취소 · Cancel</button>
+        <button type="button" class="cm-cancel" id="wi-cat-cancel">Cancel · 취소</button>
       </div>
     </div>
   </div>
@@ -1477,11 +1477,11 @@
       <div class="wi-num-display">
         <div class="big" id="wi-num-big">P-?</div>
         <div class="typ" id="wi-num-type"></div>
-        <div class="hint">민원인에게 이 번호를 알려주세요<br>Tell the visitor this number</div>
+        <div class="hint">Tell the visitor this number<br>민원인에게 이 번호를 알려주세요</div>
       </div>
       <div class="cm-actions">
-        <button type="button" class="cm-cancel" id="wi-undo">잘못 눌렀어요 · Undo</button>
-        <button type="button" class="cm-call" id="wi-ok">확인 · OK</button>
+        <button type="button" class="cm-cancel" id="wi-undo">Undo · 잘못 눌렀어요</button>
+        <button type="button" class="cm-call" id="wi-ok">OK · 확인</button>
       </div>
     </div>
   </div>
@@ -1923,7 +1923,7 @@
           renderWalkins();
           document.getElementById('wi-num-big').textContent = d.walkin.uid;
           document.getElementById('wi-num-type').textContent =
-            d.walkin.type_label + ' · ' + (d.walkin.label_en || '');
+            (d.walkin.label_en ? d.walkin.label_en + ' · ' : '') + d.walkin.type_label;
           wiModal.hidden = false;
         } catch (e) {
           showToastHtml('⚠ 접수 실패: 네트워크 오류', 4000);
