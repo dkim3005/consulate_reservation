@@ -676,6 +676,14 @@ async def set_attendance(
 ) -> JSONResponse:
     tz = ZoneInfo(LOCAL_TZ)
     target = _target_date(datetime.now(tz))
+    if role != auth.ROLE_ADMIN:
+        # Security marks arrivals only: '' <-> waiting. Counter states
+        # (active/done/noshow) belong to the admin dashboard.
+        current = store.get_states(target).get(appt_id, "")
+        allowed = (payload.state == "waiting" and current == "") or \
+                  (payload.state == "" and current == "waiting")
+        if not allowed:
+            raise HTTPException(status_code=403, detail="security can only toggle waiting")
     try:
         store.set_state(target, appt_id, payload.state)
     except ValueError as e:

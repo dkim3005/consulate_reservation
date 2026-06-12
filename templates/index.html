@@ -2261,7 +2261,16 @@
         const cur = currentState(card);
         // legacy manual noshow (idx -1) → cycle to default; auto-noshow takes over
         const idx = STATES.indexOf(cur);
-        const next = idx === -1 ? '' : STATES[(idx + 1) % STATES.length];
+        let next = idx === -1 ? '' : STATES[(idx + 1) % STATES.length];
+        if (!IS_ADMIN) {
+          // security only marks arrivals: '' <-> waiting (server enforces too)
+          if (cur === '') next = 'waiting';
+          else if (cur === 'waiting') next = '';
+          else {
+            showToastHtml('ⓘ 대기 표시/해제만 가능합니다 · Security can only mark waiting', 2500);
+            return;
+          }
+        }
         applyEverywhere(id, next);
         try {
           const r = await fetch('/api/attendance/' + encodeURIComponent(id), {
