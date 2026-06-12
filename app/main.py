@@ -59,6 +59,19 @@ app = FastAPI(title="Consulate Reservation Dashboard")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
+# ---------- HTTPS redirect (Cloudflare tunnel) ----------
+# Session cookies are Secure-only in production, so a visitor who types the
+# bare http:// URL (TV browsers, Chromecast) could log in but never keep the
+# session — bounce them to https before anything else. Local (no proxy
+# header) traffic is untouched.
+
+@app.middleware("http")
+async def _force_https(request: Request, call_next):
+    if request.headers.get("x-forwarded-proto") == "http":
+        return RedirectResponse(str(request.url.replace(scheme="https")), status_code=301)
+    return await call_next(request)
+
+
 # ---------- Auth dependencies ----------
 
 class NotAuthenticated(Exception):
