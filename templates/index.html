@@ -639,6 +639,28 @@
     /* timeline cards: no time chip (the axis shows it) — actions/badges
        gather in the top-right corner instead */
     .view-table .card .top-row { margin-bottom: 3px; justify-content: flex-end; }
+    /* Hover actions float over the top-right corner instead of joining the
+       flow — narrow (5-lane) cards have fixed heights, and growing the
+       top-row used to push the visitor's name out of view. When not
+       hovered the wrapper is transparent (display:contents), so persistent
+       indicators (📝 has-note, 📢 broadcasting) sit inline as before. */
+    .card-actions { display: contents; }
+    @media (hover: hover) {
+      .view-table .card { position: relative; }
+      .view-table .card:hover .card-actions {
+        display: flex;
+        gap: 4px;
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        z-index: 3;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        padding: 2px;
+        box-shadow: var(--shadow-md);
+      }
+    }
 
     /* Counter visibility (per-device): hidden counters collapse to a 0-width
        grid track and the remaining columns share the freed space. Cards keep
@@ -1356,9 +1378,8 @@
                style="grid-row: {{ c.row }} / span {{ c.span }}; grid-column: {{ c.col + 1 }};{% if c.lanes and c.lanes > 1 %} width: calc({{ (100 / c.lanes) | round(2) }}% - 3px); margin-left: calc({{ (100 * c.lane / c.lanes) | round(2) }}% + {{ 0 if c.lane == 0 else 3 }}px);{% endif %}"
                data-id="{{ c.id }}" data-start-iso="{{ c.start_iso }}" data-counter="{{ c.col }}" data-name="{{ c.name_ko or c.name_en }}">
             <div class="top-row">
-              {% if is_admin %}<button class="note-btn {% if c.notes %}has-note{% endif %}" type="button"
-                      title="{% for n in c.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not c.notes %}메모 추가 · Add note{% endif %}">📝{% if c.notes %} {{ c.notes|length }}{% endif %}</button>{% endif %}
-              {% if is_admin %}<button class="call-btn" type="button" title="민원인 호출">📢</button>{% endif %}
+              {% if is_admin %}<span class="card-actions"><button class="note-btn {% if c.notes %}has-note{% endif %}" type="button"
+                      title="{% for n in c.notes %}{{ n.time }} · {{ n.text }}&#10;{% endfor %}{% if not c.notes %}메모 추가 · Add note{% endif %}">📝{% if c.notes %} {{ c.notes|length }}{% endif %}</button><button class="call-btn" type="button" title="민원인 호출">📢</button></span>{% endif %}
               <span class="state-badge">{% if c.attendance == 'waiting' %}⏳{% elif c.attendance == 'active' %}▶{% elif c.attendance == 'done' %}✓{% elif c.attendance == 'noshow' %}✗{% endif %}</span>
               <span class="auto-badge"></span>
             </div>
