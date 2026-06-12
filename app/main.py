@@ -514,6 +514,36 @@ async def remove_note(appt_id: str, note_id: int, role: str = Depends(require_se
     return JSONResponse({"ok": True})
 
 
+# ---------- Shared feedback board (all roles) ----------
+
+class FeedbackCreate(BaseModel):
+    text: str
+
+
+@app.get("/api/feedback")
+async def list_feedback(role: str = Depends(require_session_api)) -> JSONResponse:
+    return JSONResponse({"items": store.get_feedback()})
+
+
+@app.post("/api/feedback")
+async def create_feedback(req: FeedbackCreate, role: str = Depends(require_session_api)) -> JSONResponse:
+    text = req.text.strip()[:500]
+    if not text:
+        raise HTTPException(status_code=400, detail="text is empty")
+    now_local = datetime.now(ZoneInfo(LOCAL_TZ))
+    item = store.add_feedback(role, text, now_local.strftime("%m/%d %H:%M"))
+    return JSONResponse({"ok": True, "item": item})
+
+
+@app.delete("/api/feedback/{fid}")
+async def remove_feedback(fid: int, role: str = Depends(require_session_api)) -> JSONResponse:
+    if role != auth.ROLE_ADMIN:
+        raise HTTPException(status_code=403, detail="admin only")
+    if not store.delete_feedback(fid):
+        raise HTTPException(status_code=404, detail="feedback not found")
+    return JSONResponse({"ok": True})
+
+
 # ---------- Walk-in pickup queue ----------
 
 class WalkinCreate(BaseModel):

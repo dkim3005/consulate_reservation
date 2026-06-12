@@ -229,3 +229,47 @@ def delete_walkin(target: date, uid: str) -> bool:
             data[seq_field] = max(same, default=0)
         _write(data)
         return True
+
+
+# ---------- Shared feedback board (persists across days, separate file) ----------
+
+FEEDBACK_PATH = Path(__file__).resolve().parent.parent / "feedback.json"
+
+
+def _read_feedback() -> dict:
+    try:
+        return json.loads(FEEDBACK_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"seq": 0, "items": []}
+
+
+def _write_feedback(data: dict) -> None:
+    tmp = FEEDBACK_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(FEEDBACK_PATH)
+
+
+def get_feedback() -> list[dict]:
+    with _lock:
+        return list(_read_feedback()["items"])
+
+
+def add_feedback(role: str, text: str, time_label: str) -> dict:
+    with _lock:
+        data = _read_feedback()
+        data["seq"] += 1
+        item = {"id": data["seq"], "time": time_label, "role": role, "text": text}
+        data["items"].append(item)
+        _write_feedback(data)
+        return item
+
+
+def delete_feedback(fid: int) -> bool:
+    with _lock:
+        data = _read_feedback()
+        kept = [i for i in data["items"] if i["id"] != fid]
+        if len(kept) == len(data["items"]):
+            return False
+        data["items"] = kept
+        _write_feedback(data)
+        return True

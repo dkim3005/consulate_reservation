@@ -1044,7 +1044,7 @@
       color: var(--text-3);
       padding-top: 2px;
     }
-    #note-text {
+    #note-text, #feedback-text {
       width: 100%;
       min-height: 84px;
       background: var(--surface-2);
@@ -1056,7 +1056,9 @@
       font-family: inherit;
       resize: vertical;
       margin-bottom: 14px;
+      box-sizing: border-box;
     }
+    #feedback-list { max-height: 280px; }
     .note-list {
       margin: 0 0 12px;
       padding: 0;
@@ -1308,6 +1310,7 @@
           <a class="logout-link" href="/tv" target="_blank" rel="noopener" title="TV 대기 화면">📺 <span class="logout-text">TV</span></a>
           <a class="logout-link" href="/manual" target="_blank" rel="noopener" title="사용 안내서">📖 <span class="logout-text">매뉴얼</span></a>
         {% endif %}
+        <button class="logout-link" id="feedback-open" type="button" title="개선 의견 남기기 · Leave feedback">💬 <span class="logout-text">Feedback</span></button>
         <div class="theme-switch" role="group" aria-label="테마 선택">
           <button class="theme-btn theme-light" type="button" data-set-theme="light">
             <span class="ico">☀</span><span>Day</span>
@@ -1561,6 +1564,19 @@
     </div>
   </div>
 
+  <div class="call-modal-backdrop" id="feedback-modal" hidden>
+    <div class="call-modal">
+      <div class="cm-name">피드백 <span style="font-size:12px; color:var(--text-3); font-weight:500;">Feedback</span></div>
+      <div class="cm-sub">대시보드 개선 의견을 남겨주세요 — 모든 사용자에게 공개되는 공용 공간입니다</div>
+      <ul class="note-list" id="feedback-list"></ul>
+      <textarea id="feedback-text" placeholder="예: 완료 체크가 너무 연해요 / 워크인 종류 추가 요청 / Buttons too small" maxlength="500"></textarea>
+      <div class="cm-actions">
+        <button type="button" class="cm-cancel" id="feedback-close">닫기 · Close</button>
+        <button type="button" class="cm-call" id="feedback-save">남기기 · Post</button>
+      </div>
+    </div>
+  </div>
+
   {% if is_admin and passcode %}
   <div class="call-modal-backdrop" id="passcode-modal" hidden>
     <div class="call-modal">
@@ -1654,6 +1670,64 @@
               setTimeout(function () { pcCopy.textContent = '복사 · Copy'; }, 1600);
             }).catch(function () {});
           }
+        });
+      }
+
+      // ---- Shared feedback board (all roles) ----
+      const fbBtn = document.getElementById('feedback-open');
+      if (fbBtn) {
+        const fbModal = document.getElementById('feedback-modal');
+        const fbList = document.getElementById('feedback-list');
+        const fbText = document.getElementById('feedback-text');
+        function fbEsc(s) {
+          return s.replace(/[&<>"]/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+          });
+        }
+        function renderFeedback(items) {
+          const isAdmin = {{ 'true' if is_admin else 'false' }};
+          fbList.innerHTML = items.length ? items.slice().reverse().map(function (i) {
+            return '<li><span class="nt">' + i.time + ' · ' + (i.role === 'admin' ? '관리자' : '시큐리티') + '</span>' +
+                   fbEsc(i.text) +
+                   (isAdmin ? '<button class="note-del" data-fid="' + i.id + '" type="button" title="삭제">✕</button>' : '') +
+                   '</li>';
+          }).join('') : '<li style="color:var(--text-3)">아직 의견 없음 · No feedback yet</li>';
+        }
+        async function refreshFeedback() {
+          try {
+            const r = await fetch('/api/feedback');
+            if (r.ok) renderFeedback((await r.json()).items);
+          } catch (e) {}
+        }
+        fbBtn.addEventListener('click', function () {
+          fbModal.hidden = false;
+          refreshFeedback();
+        });
+        document.getElementById('feedback-close').addEventListener('click', function () {
+          fbModal.hidden = true;
+        });
+        fbModal.addEventListener('click', function (e) {
+          if (e.target === fbModal) fbModal.hidden = true;
+        });
+        document.getElementById('feedback-save').addEventListener('click', async function () {
+          const text = fbText.value.trim();
+          if (!text) return;
+          try {
+            const r = await fetch('/api/feedback', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: text })
+            });
+            if (r.ok) { fbText.value = ''; refreshFeedback(); }
+          } catch (e) {}
+        });
+        fbList.addEventListener('click', async function (e) {
+          const del = e.target.closest('.note-del');
+          if (!del) return;
+          try {
+            const r = await fetch('/api/feedback/' + del.dataset.fid, { method: 'DELETE' });
+            if (r.ok) refreshFeedback();
+          } catch (e2) {}
         });
       }
 
