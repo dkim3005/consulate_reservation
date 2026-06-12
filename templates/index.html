@@ -653,6 +653,14 @@
       z-index: 3;
     }
     .view-table .card .state-badge { display: none !important; }
+    /* done keeps a persistent (smaller) check — staff feedback: dimming
+       alone wasn't an obvious "finished" signal */
+    .view-table .card.state-done .state-badge {
+      display: inline-flex !important;
+      width: 15px;
+      height: 15px;
+      font-size: 9px;
+    }
     /* floating buttons sit over card text — opaque so they stay legible */
     .view-table .card .top-row .call-btn,
     .view-table .card .top-row .note-btn {
